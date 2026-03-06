@@ -1,0 +1,30 @@
+name: Deploy Automático Laravel
+
+on:
+  push:
+    branches: [ "main" ]
+
+jobs:
+ laravel-deploy:
+ runs-on: self-hosted
+
+  steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Instalar Dependências PHP (Composer)
+      run: composer install --no-dev --optimize-autoloader
+
+    - name: Instalar Dependências JS e Build (Vite)
+      run: |
+        npm install
+        npm run build
+
+    - name: Copiar para Pasta do XAMPP
+      run: xcopy /E /H /Y /I . "C:\xampp\htdocs\controle-boletos"
+
+    - name: Rodar Migrations e Limpar Cache
+      run: |
+        cd C:\xampp\htdocs\controle-boletos
+        php artisan migrate --force
+        php artisan optimize:clear
