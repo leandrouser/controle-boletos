@@ -5,10 +5,10 @@ on:
     branches: [ "main" ]
 
 jobs:
- laravel-deploy:
- runs-on: self-hosted
+  laravel-deploy:
+    runs-on: self-hosted
 
-  steps:
+    steps:
     - name: Checkout code
       uses: actions/checkout@v4
 
