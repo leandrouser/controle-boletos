@@ -21,4 +21,19 @@ class Boleto extends Model
 {
     return $this->belongsTo(User::class);
 }
+
+public function setValorAttribute($value)
+    {
+        if (is_string($value)) {
+            if (str_contains($value, ',')) {
+            $valorLimpo = str_replace('.', '', $value);
+            $valorLimpo = str_replace(',', '.', $valorLimpo);
+            $this->attributes['valor'] = (float) $valorLimpo;
+        } else {
+            $this->attributes['valor'] = (float) $value;
+        }
+    } else {
+        $this->attributes['valor'] = $value;
+    }
+    }
 }
