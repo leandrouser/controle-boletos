@@ -14,77 +14,83 @@ class BoletoController extends Controller
 
     public function store(Request $request)
 {
-    // Validação
     $request->validate([
         'beneficiario' => 'required|string|max:255',
         'valor' => 'required',
         'data_vencimento' => 'required|date',
     ]);
 
-    $isParcelado = $request->has('repetir');
-    $totalParcelas = $isParcelado ? (int)$request->input('parcelas', 1) : 1;
+    $isParcelado = $request->has('repetir') && $request->has('vencimentos_parcelas');
     
-    $dataInicial = Carbon::parse($request->data_vencimento);
+    if ($isParcelado) {
+        $vencimentos = $request->input('vencimentos_parcelas');
+        $valores = $request->input('valores_parcelas');
+        $total = count($vencimentos);
 
-    for ($i = 0; $i < $totalParcelas; $i++) {
-        $vencimento = $dataInicial->copy()->addMonths($i);
+        foreach ($vencimentos as $index => $data) {
+            $valorLimpo = str_replace(['.', ','], ['', '.'], $valores[$index]);
 
-        $nomeFinal = $totalParcelas > 1
-            ? $request->beneficiario . " (" . str_pad($i + 1, 2, '0', STR_PAD_LEFT) . "/" . str_pad($totalParcelas, 2, '0', STR_PAD_LEFT) . ")"
-            : $request->beneficiario;
-
+            Boleto::create([
+                'beneficiario'    => $request->beneficiario . " (" . ($index + 1) . "/{$total})",
+                'valor'           => $valorLimpo,
+                'data_vencimento' => $data,
+                'codigo_barras'   => $request->codigo_barras,
+                'status'          => 'pendente',
+                'user_id'         => auth()->id(),
+            ]);
+        }
+    } else {
+        $valorLimpo = str_replace(['.', ','], ['', '.'], $request->valor);
         Boleto::create([
-            'beneficiario'    => $nomeFinal,
-            'valor'           => $request->valor,
-            'data_vencimento' => $vencimento,
+            'beneficiario'    => $request->beneficiario,
+            'valor'           => $valorLimpo,
+            'data_vencimento' => $request->data_vencimento,
             'codigo_barras'   => $request->codigo_barras,
             'status'          => 'pendente',
             'user_id'         => auth()->id(),
         ]);
     }
 
-    $mensagem = $totalParcelas > 1
-        ? "$totalParcelas boletos gerados com sucesso para os próximos meses!"
-        : "Boleto cadastrado com sucesso!";
-
-    return back()->with('success', $mensagem);
+    return redirect()->route('dashboard')->with('success', 'Lançamento(s) realizado(s) com sucesso!');
 }
 
     public function index(Request $request) {
-        $query = Boleto::query();
+    $query = Boleto::query();
 
-        if ($request->filled('beneficiario')) {
-            // Alterado de 'ilike' para 'like' para evitar erros em MySQL/SQLite
-            $query->where('beneficiario', 'like', '%' . $request->beneficiario . '%');
-        }
-
-        if ($request->filled('valor')) {
-            $query->where('valor', $request->valor);
-        }
-
-        if ($request->filled('data_vencimento')) {
-            $query->where('data_vencimento', $request->data_vencimento);
-        }
-
-        $boletos = $query->orderBy('data_vencimento', 'asc')->get();
-        $hoje = date('Y-m-d');
-
-        // Cálculos
-        $totalDia = Boleto::where('status', 'pendente')
-            ->whereDate('data_vencimento', $hoje)
-            ->sum('valor');
-
-        $totalSemana = Boleto::where('status', 'pendente')
-            ->whereBetween('data_vencimento', [now()->startOfWeek(), now()->endOfWeek()])
-            ->sum('valor');
-
-        $totalMes = Boleto::where('status', 'pendente')
-            ->whereMonth('data_vencimento', now()->month)
-            ->whereYear('data_vencimento', now()->year)
-            ->sum('valor');
-
-        return view('boletos.index', compact('boletos', 'hoje', 'totalDia', 'totalSemana', 'totalMes'));
+    if ($request->filled('beneficiario')) {
+        $query->where('beneficiario', 'like', '%' . $request->beneficiario . '%');
     }
+    if ($request->filled('valor')) {
+        $query->where('valor', $request->valor);
+    }
+    if ($request->filled('data_vencimento')) {
+        $query->where('data_vencimento', $request->data_vencimento);
+    }
+
+    $boletos = $query->orderBy('data_vencimento', 'asc')->paginate(10)->withQueryString();
+    
+    $hoje = \Carbon\Carbon::today();
+    $fimSemana = \Carbon\Carbon::now()->endOfWeek();
+    $fimMes = \Carbon\Carbon::now()->endOfMonth();
+
+    $baseHoje = Boleto::where('status', 'pendente')->whereDate('data_vencimento', '<=', $hoje);
+    $totalDia = (float) $baseHoje->sum('valor');
+    $qtdDia   = $baseHoje->count();
+
+    $baseSemana = Boleto::where('status', 'pendente')->whereDate('data_vencimento', '<=', $fimSemana);
+    $totalSemana = (float) $baseSemana->sum('valor');
+    $qtdSemana   = $baseSemana->count();
+
+    $baseMes = Boleto::where('status', 'pendente')->whereDate('data_vencimento', '<=', $fimMes);
+    $totalMes = (float) $baseMes->sum('valor');
+    $qtdMes   = $baseMes->count();
+
+    return view('boletos.index', compact(
+        'boletos', 'hoje',
+        'totalDia', 'totalSemana', 'totalMes',
+        'qtdDia', 'qtdSemana', 'qtdMes'
+    ));
+}
 
     public function pagar($id) {
         $boleto = Boleto::findOrFail($id);
@@ -93,7 +99,6 @@ class BoletoController extends Controller
             'data_pagamento' => date('Y-m-d')
         ]);
 
-        // Corrigido: Agora redireciona para 'dashboard'
         return redirect()->route('dashboard')->with('success', 'Boleto pago!');
     }
 
@@ -104,20 +109,24 @@ class BoletoController extends Controller
 
     public function update(Request $request, $id) {
         $boleto = Boleto::findOrFail($id);
-        
+        $request->validate([
+        'beneficiario'    => 'required|string|max:255',
+        'valor'           => 'required',
+        'data_vencimento' => 'required|date',
+    ]);
         if ($request->status == 'pago' && $boleto->status == 'pendente') {
-            $request->merge(['data_pagamento' => date('Y-m-d')]);
-        } elseif ($request->status == 'pendente') {
-            $request->merge(['data_pagamento' => null]);
-        }
+            $dataPagamento = now();
+    } elseif ($request->status == 'pendente') {
+        $dataPagamento = null;
+    }
 
-        $valor = str_replace(',', '.', str_replace('.', '', $request->valor));
         $boleto->update([
-        'beneficiario' => $request->beneficiario,
-        'valor' => $valor,
+        'beneficiario'    => $request->beneficiario,
+        'valor'           => $request->valor,
         'data_vencimento' => $request->data_vencimento,
-        'codigo_barras' => $request->codigo_barras,
-        'status' => $request->status,
+        'codigo_barras'   => $request->codigo_barras,
+        'status'          => $request->status,
+        'data_pagamento'  => $dataPagamento,
     ]);
 
     return redirect()->route('dashboard')->with('success', 'Boleto atualizado com sucesso!');
@@ -126,7 +135,24 @@ class BoletoController extends Controller
     public function destroy($id) {
         $boleto = Boleto::findOrFail($id);
         $boleto->delete();
-        // Corrigido: Agora redireciona para 'dashboard'
         return redirect()->route('dashboard')->with('success', 'Boleto excluído!');
     }
+
+    public function pagarLote(Request $request)
+{
+    $ids = $request->input('ids');
+
+    if (!$ids || count($ids) === 0) {
+        return redirect()->back()->with('error', 'Nenhum boleto selecionado.');
+    }
+
+    Boleto::whereIn('id', $ids)
+        ->where('status', 'pendente')
+        ->update([
+            'status' => 'pago',
+            'data_pagamento' => now()
+        ]);
+
+    return redirect()->route('dashboard')->with('success', count($ids) . ' boletos foram pagos com sucesso!');
+}
 }
