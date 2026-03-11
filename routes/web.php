@@ -9,21 +9,30 @@ Route::get('/', function () {
 });
 
 Route::middleware(['auth', 'verified'])->group(function () {
-    
+
     Route::get('/dashboard', [BoletoController::class, 'index'])->name('dashboard');
 
+    // Rotas estáticas ANTES das dinâmicas com {id}
     Route::get('/boletos/novo', [BoletoController::class, 'create'])->name('boletos.create');
+    Route::post('/boletos/pagar-lote', [BoletoController::class, 'pagarLote'])->name('boletos.pagarLote');
+    Route::get('/boletos/relatorio', [BoletoController::class, 'gerarPdf'])->name('boletos.pdf');
+
     Route::post('/boletos', [BoletoController::class, 'store'])->name('boletos.store');
+
+    // Rotas dinâmicas com {id}
     Route::get('/boletos/{id}/editar', [BoletoController::class, 'edit'])->name('boletos.edit');
     Route::put('/boletos/{id}', [BoletoController::class, 'update'])->name('boletos.update');
     Route::delete('/boletos/{id}', [BoletoController::class, 'destroy'])->name('boletos.destroy');
     Route::post('/boletos/{id}/pagar', [BoletoController::class, 'pagar'])->name('boletos.pagar');
-    Route::post('/boletos/pagar-lote', [BoletoController::class, 'pagarLote'])->name('boletos.pagar-lote');
-    Route::get('/boletos/relatorio', [BoletoController::class, 'gerarPdf'])->name('boletos.pdf');
+
+    // Perfil
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
-    Route::post('/boletos/pagar-lote', [BoletoController::class, 'pagarLote'])->name('boletos.pagarLote');
+
+    // APIs internas
+    Route::get('/api/consultar-beneficiario/{assinatura}', [BoletoController::class, 'consultarAssinatura']);
+    Route::get('/api/verificar-boleto-duplicado', [BoletoController::class, 'verificarDuplicado']);
 });
 
 require __DIR__.'/auth.php';
