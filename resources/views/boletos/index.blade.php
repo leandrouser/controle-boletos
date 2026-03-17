@@ -27,6 +27,7 @@
         </div>
     @endif
 
+    {{-- Cards de Resumo --}}
     <div class="row g-3 mb-4">
         <div class="col-md-4">
             <div id="card-resumo" class="card border-0 shadow-sm text-white bg-dark h-100" style="cursor: pointer; transition: all 0.3s ease;">
@@ -69,6 +70,7 @@
         </div>
     </div>
 
+    {{-- Filtros --}}
     <div class="card border-0 shadow-sm mb-4">
         <div class="card-body bg-light rounded">
             <form action="{{ route('dashboard') }}" method="GET" class="row g-2 align-items-end">
@@ -105,16 +107,16 @@
         </div>
     </div>
 
+    {{-- Tabela --}}
     <div class="card border-0 shadow-sm">
-        {{-- Form exclusivo para pagar em lote --}}
         <form action="{{ route('boletos.pagarLote') }}" method="POST" id="form-lote">
             @csrf
             <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
                 <h5 class="mb-0 fw-bold">Listagem de Boletos ({{ ucfirst($status) }}s)</h5>
                 @if($status == 'pendente')
-                <button type="submit" id="btn-pagar-lote" class="btn btn-success btn-sm fw-bold shadow-sm" disabled>
-                    <i class="fas fa-check-double me-1"></i> Pagar Selecionados
-                </button>
+                    <button type="submit" id="btn-pagar-lote" class="btn btn-success btn-sm fw-bold shadow-sm" disabled>
+                        <i class="fas fa-check-double me-1"></i> Pagar Selecionados
+                    </button>
                 @endif
             </div>
             <div class="card-body p-0">
@@ -136,18 +138,15 @@
                         </thead>
                         <tbody>
                             @forelse($boletos as $boleto)
-                                @php
-                                    $isVencido = $boleto->data_vencimento < $hoje && $boleto->status == 'pendente';
-                                @endphp
+                                @php $isVencido = $boleto->data_vencimento < $hoje && $boleto->status == 'pendente'; @endphp
                                 <tr style="{{ $isVencido ? 'background-color: #fff5f5;' : '' }}">
                                     <td class="ps-4">
                                         @if($boleto->status == 'pendente')
-                                            <input type="checkbox" name="ids[]" value="{{ $boleto->id }}" class="form-check-input boleto-checkbox">
+                                            <input type="checkbox" name="ids[]" value="{{ $boleto->id }}" data-valor="{{ $boleto->valor }}" class="form-check-input boleto-checkbox">
                                         @else
                                             <i class="fas fa-check-circle text-success opacity-50"></i>
                                         @endif
                                     </td>
-
                                     <td class="fw-bold text-dark">{{ $boleto->beneficiario }}</td>
                                     <td class="fw-bold text-primary">R$ {{ number_format($boleto->valor, 2, ',', '.') }}</td>
                                     <td>
@@ -168,25 +167,12 @@
                                     <td class="pe-4 text-center">
                                         <div class="btn-group shadow-sm">
                                             @if($boleto->status == 'pendente')
-                                                {{-- Botão pagar individual usa form externo via atributo form= --}}
-                                                <button type="submit"
-                                                    form="form-pagar-{{ $boleto->id }}"
-                                                    class="btn btn-sm btn-success"
-                                                    onclick="return confirm('Confirmar pagamento?')">
+                                                <button type="submit" form="form-pagar-{{ $boleto->id }}" class="btn btn-sm btn-success" onclick="return confirm('Confirmar pagamento?')">
                                                     <i class="fas fa-check"></i> Pagar
                                                 </button>
                                             @endif
-
-                                            <a href="{{ route('boletos.edit', $boleto->id) }}" class="btn btn-white btn-sm text-primary border-end">
-                                                <i class="fas fa-edit"></i>
-                                            </a>
-
-                                            <button type="submit"
-                                                form="form-excluir-{{ $boleto->id }}"
-                                                class="btn btn-white btn-sm text-danger"
-                                                onclick="return confirm('Excluir?')">
-                                                <i class="fas fa-trash-alt"></i>
-                                            </button>
+                                            <a href="{{ route('boletos.edit', $boleto->id) }}" class="btn btn-white btn-sm text-primary border-end"><i class="fas fa-edit"></i></a>
+                                            <button type="submit" form="form-excluir-{{ $boleto->id }}" class="btn btn-white btn-sm text-danger" onclick="return confirm('Excluir?')"><i class="fas fa-trash-alt"></i></button>
                                         </div>
                                     </td>
                                 </tr>
@@ -199,7 +185,7 @@
             </div>
             <div class="card-footer bg-white py-3 border-top">
                 <div class="d-flex justify-content-between align-items-center">
-                    <small class="text-muted">Mostrando <b>{{ $boletos->firstItem() ?? 0 }}</b>-<b>{{ $boletos->lastItem() ?? 0 }}</b> de <b>{{ $boletos->total() }}</b></small>
+                    <small class="text-muted">Mostrando <b>{{ $boletos->firstItem() ?? 0 }}</b> de <b>{{ $boletos->total() }}</b></small>
                     <div>{{ $boletos->links() }}</div>
                 </div>
             </div>
@@ -207,27 +193,34 @@
     </div>
 </div>
 
-{{--
-    Forms de pagar e excluir individuais ficam FORA do form-lote.
-    O HTML não permite forms aninhados — colocá-los aqui garante funcionamento correto.
-    Os botões dentro da tabela referenciam estes forms via atributo form="form-pagar-{id}".
---}}
+{{-- Formulários Invisíveis --}}
 @foreach($boletos as $boleto)
-    <form id="form-pagar-{{ $boleto->id }}"
-          action="{{ route('boletos.pagar', $boleto->id) }}"
-          method="POST"
-          style="display:none;">
-        @csrf
-    </form>
-
-    <form id="form-excluir-{{ $boleto->id }}"
-          action="{{ route('boletos.destroy', $boleto->id) }}"
-          method="POST"
-          style="display:none;">
-        @csrf
-        @method('DELETE')
-    </form>
+    <form id="form-pagar-{{ $boleto->id }}" action="{{ route('boletos.pagar', $boleto->id) }}" method="POST" style="display:none;">@csrf</form>
+    <form id="form-excluir-{{ $boleto->id }}" action="{{ route('boletos.destroy', $boleto->id) }}" method="POST" style="display:none;">@csrf @method('DELETE')</form>
 @endforeach
+
+{{-- BARRA FLUTUANTE --}}
+<div id="sticky-payout-bar" class="fixed-bottom bg-dark text-white shadow-lg d-none" style="z-index: 1050;">
+    <div class="container-fluid py-3">
+        <div class="d-flex justify-content-between align-items-center px-4">
+            <div class="d-flex align-items-center gap-4">
+                <div>
+                    <small class="text-uppercase opacity-75 d-block" style="font-size: 0.7rem;">Selecionados</small>
+                    <h5 class="mb-0 fw-bold" id="sticky-count">0 itens</h5>
+                </div>
+                <div class="border-start border-secondary ps-4">
+                    <small class="text-uppercase opacity-75 d-block" style="font-size: 0.7rem;">Total a Pagar</small>
+                    <h4 class="mb-0 fw-bold text-success" id="sticky-total">R$ 0,00</h4>
+                </div>
+            </div>
+            <button type="button"
+                onclick="confirmarPagamentoLote()"
+                class="btn btn-success btn-lg px-5 fw-bold shadow-sm">
+                <i class="fas fa-check-double me-2"></i> Pagar Agora
+            </button>
+        </div>
+    </div>
+</div>
 
 <style>
     .bg-success-subtle { background-color: #e1f2e8 !important; }
@@ -235,15 +228,15 @@
     .bg-warning-subtle { background-color: #fff8e6 !important; }
     .btn-white { background: #fff; border: 1px solid #dee2e6; }
     #card-resumo:hover { transform: translateY(-3px); filter: brightness(1.1); }
-    .pagination { margin-bottom: 0; }
+    .fixed-bottom { transition: transform 0.3s ease-in-out; }
 </style>
 
 <script>
-    const card    = document.getElementById('card-resumo');
-    const titulo  = document.getElementById('titulo-resumo');
-    const valor   = document.getElementById('valor-resumo');
+    const card = document.getElementById('card-resumo');
+    const titulo = document.getElementById('titulo-resumo');
+    const valor = document.getElementById('valor-resumo');
     const legenda = document.getElementById('legenda-resumo');
-    const qtd     = document.getElementById('qtd-resumo');
+    const qtd = document.getElementById('qtd-resumo');
 
     const dados = [
         { titulo: "Total Hoje",   valor: "R$ {{ number_format($totalDia, 2, ',', '.') }}",    qtd: "{{ $qtdDia }} {{ $qtdDia == 1 ? 'boleto' : 'boletos' }}",       legenda: "vencendo hoje + atrasados",    classe: "bg-dark"    },
@@ -252,37 +245,72 @@
     ];
 
     let estadoAtual = 0;
-    card.addEventListener('click', function () {
-        card.style.opacity = '0.5';
-        setTimeout(() => {
-            estadoAtual = (estadoAtual + 1) % dados.length;
-            const info = dados[estadoAtual];
-            titulo.innerText  = info.titulo;
-            valor.innerText   = info.valor;
-            qtd.innerText     = info.qtd;
-            legenda.innerText = info.legenda;
-            card.className    = `card border-0 shadow-sm text-white h-100 ${info.classe}`;
-            card.style.opacity = '1';
-        }, 150);
-    });
+    if(card) {
+        card.addEventListener('click', function () {
+            card.style.opacity = '0.5';
+            setTimeout(() => {
+                estadoAtual = (estadoAtual + 1) % dados.length;
+                const info = dados[estadoAtual];
+                titulo.innerText = info.titulo;
+                valor.innerText = info.valor;
+                qtd.innerText = info.qtd;
+                legenda.innerText = info.legenda;
+                card.className = `card border-0 shadow-sm text-white h-100 ${info.classe}`;
+                card.style.opacity = '1';
+            }, 150);
+        });
+    }
 
-    const selectAll  = document.getElementById('select-all');
+    const selectAll = document.getElementById('select-all');
     const checkboxes = document.querySelectorAll('.boleto-checkbox');
-    const btnLote    = document.getElementById('btn-pagar-lote');
+    const btnLote = document.getElementById('btn-pagar-lote');
+    const stickyBar = document.getElementById('sticky-payout-bar');
+    const stickyCount = document.getElementById('sticky-count');
+    const stickyTotal = document.getElementById('sticky-total');
 
     function toggleBtn() {
-        if (!btnLote) return;
-        const checkedCount = document.querySelectorAll('.boleto-checkbox:checked').length;
-        btnLote.disabled   = checkedCount === 0;
-        btnLote.innerHTML  = `<i class="fas fa-check-double me-1"></i> Pagar ${checkedCount} selecionados`;
+        const checkboxesMarcadas = document.querySelectorAll('.boleto-checkbox:checked');
+        const checkedCount = checkboxesMarcadas.length;
+        let totalSoma = 0;
+
+        checkboxesMarcadas.forEach(cb => {
+            totalSoma += parseFloat(cb.getAttribute('data-valor'));
+        });
+
+        const valorFormatado = new Intl.NumberFormat('pt-BR', {
+            style: 'currency',
+            currency: 'BRL'
+        }).format(totalSoma);
+
+        if(btnLote) {
+            btnLote.disabled = checkedCount === 0;
+            btnLote.innerHTML = `<i class="fas fa-check-double me-1"></i> Pagar ${checkedCount} selecionados`;
+        }
+
+        if (checkedCount > 0) {
+            stickyBar.classList.remove('d-none');
+            stickyCount.innerText = `${checkedCount} ${checkedCount === 1 ? 'item' : 'itens'}`;
+            stickyTotal.innerText = valorFormatado;
+        } else {
+            stickyBar.classList.add('d-none');
+        }
     }
 
     if (selectAll) {
-        selectAll.addEventListener('change', function () {
+        selectAll.addEventListener('change', function() {
             checkboxes.forEach(cb => cb.checked = this.checked);
             toggleBtn();
         });
     }
+
+    function confirmarPagamentoLote() {
+    const qtd = document.querySelectorAll('.boleto-checkbox:checked').length;
+    const msg = `Você selecionou ${qtd} ${qtd === 1 ? 'boleto' : 'boletos'}. Deseja confirmar o pagamento em lote?`;
+
+    if (confirm(msg)) {
+        document.getElementById('form-lote').submit();
+    }
+}
 
     checkboxes.forEach(cb => cb.addEventListener('change', toggleBtn));
 </script>
