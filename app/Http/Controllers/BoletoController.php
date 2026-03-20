@@ -3,26 +3,22 @@
 namespace App\Http\Controllers;
 
 use App\Models\BeneficiarioIdentificado;
+use Picqer\Barcode\BarcodeGeneratorHTML;
 use Illuminate\Http\Request;
 use App\Models\Boleto;
 use Carbon\Carbon;
 
 class BoletoController extends Controller
 {
-    /**
-     * Converte valor do formato brasileiro (1.234,56) para float.
-     * Também aceita formato inglês (1234.56) como fallback seguro.
-     */
+
     private function parseBrValue(string $valor): float
     {
         $v = trim($valor);
 
-        // Formato BR: tem vírgula como decimal → ex: 1.234,56 ou 234,56
         if (str_contains($v, ',')) {
-            $v = str_replace('.', '', $v);  // remove separador de milhar
-            $v = str_replace(',', '.', $v); // vírgula → ponto decimal
+            $v = str_replace('.', '', $v);
+            $v = str_replace(',', '.', $v);
         }
-        // Formato EN puro (ex: 1234.56) — não faz nada, já está correto
 
         return (float) $v;
     }
@@ -95,7 +91,7 @@ class BoletoController extends Controller
             );
         }
 
-        return redirect()->route('dashboard')->with('success', 'Lançamento(s) realizado(s) com sucesso!');
+        return redirect()->back()->with('success', 'Boleto cadastrado com sucesso! Você já pode inserir o próximo.');
     }
 
     public function verificarDuplicado(Request $request)
@@ -233,4 +229,60 @@ class BoletoController extends Controller
 
         return redirect()->route('dashboard')->with('success', count($ids) . ' boleto(s) pago(s) com sucesso!');
     }
+
+    public function visualizarBarcode($id)
+{
+    $boleto   = Boleto::findOrFail($id);
+    $linha    = preg_replace('/\D/', '', $boleto->codigo_barras);
+    $tamanho  = strlen($linha);
+    $tipo     = '';
+    $aviso    = null;
+
+    if ($tamanho === 44) {
+        $codigo44 = $linha;
+        $tipo     = str_starts_with($linha, '8') ? 'convenio' : 'bancario';
+
+    } elseif ($tamanho === 47 && !str_starts_with($linha, '8')) {
+
+        $codigo44 = substr($linha, 0, 3)
+                  . substr($linha, 3, 1)
+                  . substr($linha, 32, 1)
+                  . substr($linha, 33, 14)
+                  . substr($linha, 4, 5)
+                  . substr($linha, 10, 10)
+                  . substr($linha, 21, 10);
+        $tipo     = 'bancario';
+
+    } elseif ($tamanho === 48 && str_starts_with($linha, '8')) {
+
+        $codigo44 = substr($linha, 0, 10)
+                . substr($linha, 11, 10)
+                . substr($linha, 22, 10)
+                . substr($linha, 33, 10);
+        $tipo     = 'convenio';
+
+    } else {
+        $codigo44 = $linha;
+        $tipo     = 'desconhecido';
+        $aviso    = "Código com {$tamanho} dígitos não reconhecido. Verifique se foi digitado corretamente.";
+    }
+
+    $generator  = new \Picqer\Barcode\BarcodeGeneratorSVG();
+    $barcodeSvg = $generator->getBarcode(
+        $codigo44,
+        $generator::TYPE_INTERLEAVED_2_5,
+        2,
+        100
+    );
+
+    return view('boletos.show', [
+        'barcode'  => $barcodeSvg,
+        'numero'   => $boleto->codigo_barras,
+        'boleto'   => $boleto,
+        'tamanho'  => $tamanho,
+        'tipo'     => $tipo,
+        'aviso'    => $aviso,
+        'codigo44' => $codigo44,
+    ]);
+}
 }

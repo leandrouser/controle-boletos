@@ -17,29 +17,38 @@ class LoginRequest extends FormRequest
     }
 
     /**
-     * 1. Mudamos a regra de validação para telefone
+     * 1. Usamos 'login' como o campo genérico nas regras
      */
     public function rules(): array
     {
         return [
-            'phone' => ['required', 'string'],
+            'login' => ['required', 'string'],
             'password' => ['required', 'string'],
         ];
     }
 
     /**
-     * 2. Mudamos o Auth::attempt para usar telefone
+     * 2. Lógica dinâmica: detecta se é e-mail ou telefone para autenticar
      */
     public function authenticate(): void
     {
         $this->ensureIsNotRateLimited();
 
-        // Tenta logar usando 'phone' e 'password'
-        if (! Auth::attempt($this->only('phone', 'password'), $this->boolean('remember'))) {
+        $loginValue = $this->input('login');
+        
+        // Se contiver '@', assume que é e-mail, senão assume que é phone
+        $field = filter_var($loginValue, FILTER_VALIDATE_EMAIL) ? 'email' : 'phone';
+
+        $credentials = [
+            $field => $loginValue,
+            'password' => $this->input('password'),
+        ];
+
+        if (! Auth::attempt($credentials, $this->boolean('remember'))) {
             RateLimiter::hit($this->throttleKey());
 
             throw ValidationException::withMessages([
-                'phone' => trans('auth.failed'),
+                'login' => trans('auth.failed'),
             ]);
         }
 
@@ -56,18 +65,15 @@ class LoginRequest extends FormRequest
         $seconds = RateLimiter::availableIn($this->throttleKey());
 
         throw ValidationException::withMessages([
-            'telefone' => trans('auth.throttle', [
-                'seconds' => $seconds,
-                'minutes' => ceil($seconds / 60),
-            ]),
-        ]);
+    'login' => 'Muitas tentativas de login. Por favor, aguarde ' . $seconds . ' segundos antes de tentar novamente.',
+]);
     }
 
     /**
-     * 3. Mudamos a chave de limite (throttle) para telefone
+     * 3. Chave de limite baseada no valor do campo 'login'
      */
     public function throttleKey(): string
     {
-        return Str::transliterate(Str::lower($this->string('phone')).'|'.$this->ip());
+        return Str::transliterate(Str::lower($this->string('login')).'|'.$this->ip());
     }
 }

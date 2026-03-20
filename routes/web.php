@@ -24,6 +24,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::put('/boletos/{id}', [BoletoController::class, 'update'])->name('boletos.update');
     Route::delete('/boletos/{id}', [BoletoController::class, 'destroy'])->name('boletos.destroy');
     Route::post('/boletos/{id}/pagar', [BoletoController::class, 'pagar'])->name('boletos.pagar');
+    Route::get('/boletos/{id}/barcode', [BoletoController::class, 'visualizarBarcode'])->name('boletos.show');
 
     // Perfil
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');

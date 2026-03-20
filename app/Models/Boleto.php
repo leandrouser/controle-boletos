@@ -6,7 +6,6 @@ use Illuminate\Database\Eloquent\Model;
 
 class Boleto extends Model
 {
-    // Lembra de liberar os campos para salvamento em massa
     protected $fillable = [
         'beneficiario',
         'valor',
@@ -14,7 +13,8 @@ class Boleto extends Model
         'codigo_barras',
         'status',
         'data_pagamento',
-        'user_id'
+        'user_id',
+        'linha_digitavel'
     ];
 
     public function user()
