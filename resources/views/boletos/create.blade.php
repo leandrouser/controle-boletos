@@ -25,19 +25,38 @@
                     </div>
                 @endif
 
-                <input type="hidden" name="assinatura_origem" id="assinatura_origem">
-
                 <form action="{{ route('boletos.store') }}" method="POST" id="form-boleto">
                     @csrf
+
+                    <input type="hidden" name="assinatura_origem" id="assinatura_origem">
+                    <input type="hidden" name="conta_origem"      id="conta_origem">
 
                     <div class="mb-4 p-3 bg-light border-start border-primary border-4 rounded">
                         <label class="form-label fw-bold text-primary">
                             <i class="fas fa-expand me-1"></i> Linha Digitável / Código de Barras
                         </label>
-                        <input type="text" id="codigo_barras" name="codigo_barras"
-                            class="form-control form-control-lg shadow-sm"
-                            placeholder="Cole o código aqui para preenchimento automático..."
-                            oninput="decifrarBoleto(this.value)" autofocus>
+                        <div class="input-group">
+                            <input type="text" id="codigo_barras" name="codigo_barras"
+                                class="form-control form-control-lg shadow-sm"
+                                placeholder="Cole o código aqui para preenchimento automático..."
+                                oninput="decifrarBoleto(this.value)" autofocus>
+                            <span class="input-group-text bg-white" id="spinner-beneficiario" style="display:none;">
+                                <span class="spinner-border spinner-border-sm text-primary" role="status"></span>
+                            </span>
+                        </div>
+                        <div id="badge-tipo-boleto" class="mt-2" style="display:none;">
+                            <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle px-2 py-1 small">
+                                <i class="fas fa-info-circle me-1"></i>
+                                <span id="texto-tipo-boleto"></span>
+                            </span>
+                        </div>
+                        <div id="badge-beneficiario-encontrado" class="mt-2" style="display:none;">
+                            <span class="badge bg-success-subtle text-success border border-success-subtle px-3 py-2">
+                                <i class="fas fa-history me-1"></i>
+                                Beneficiário identificado pelo histórico:
+                                <strong id="badge-nome-beneficiario"></strong>
+                            </span>
+                        </div>
                     </div>
 
                     <hr class="text-muted mb-4">
@@ -47,9 +66,8 @@
                             <label class="form-label fw-bold">Beneficiário / Empresa</label>
                             <div class="input-group">
                                 <span class="input-group-text bg-white"><i class="fas fa-building text-muted"></i></span>
-                                <input type="text" name="beneficiario" class="form-control"
-                                    placeholder="Ex: Copel, Aluguel, Cartão..."
-                                    value="{{ old('beneficiario') }}" required>
+                                <input type="text" name="beneficiario" id="beneficiario" class="form-control"
+                                    placeholder="Ex: Copel, Aluguel..." required>
                             </div>
                         </div>
 
@@ -57,10 +75,7 @@
                             <label class="form-label fw-bold">Valor do Boleto</label>
                             <div class="input-group">
                                 <span class="input-group-text bg-white">R$</span>
-                            
-                                <input type="text" id="campo_valor" name="valor"
-                                    class="form-control" placeholder="0,00"
-                                    inputmode="decimal" required>
+                                <input type="text" id="campo_valor" name="valor" class="form-control" placeholder="0,00" required>
                             </div>
                         </div>
 
@@ -102,7 +117,6 @@
                                     <small class="text-primary fw-bold d-block mb-2" id="info-parcela"></small>
                                 </div>
                             </div>
-
                             <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
                                 <div class="d-flex justify-content-between align-items-center mb-2">
                                     <h6 class="mb-0 fw-bold text-muted">Conferência de Parcelas</h6>
@@ -114,10 +128,8 @@
                                 <table class="table table-sm table-hover border">
                                     <thead class="table-light">
                                         <tr>
-                                            <th>Parcela</th>
-                                            <th>Vencimento</th>
-                                            <th>Valor (R$)</th>
-                                            <th class="text-center">Ação</th>
+                                            <th>Parcela</th><th>Vencimento</th>
+                                            <th>Valor (R$)</th><th class="text-center">Ação</th>
                                         </tr>
                                     </thead>
                                     <tbody id="tabela_previa"></tbody>
@@ -145,226 +157,269 @@
 </div>
 
 <script src="https://unpkg.com/simple-mask-money@3.0.0/lib/simple-mask-money.min.js"></script>
-
 <script>
-const campoValor     = document.getElementById('campo_valor');
-const inputParcelas  = document.getElementById('input_parcelas');
-const inputIntervalo = document.getElementById('input_intervalo');
-const inputDataVenc  = document.getElementById('data_vencimento');
-const infoParcela    = document.getElementById('info-parcela');
+const campoValor         = document.getElementById('campo_valor');
+const inputParcelas      = document.getElementById('input_parcelas');
+const inputIntervalo     = document.getElementById('input_intervalo');
+const inputDataVenc      = document.getElementById('data_vencimento');
+const infoParcela        = document.getElementById('info-parcela');
 const checkboxRepetir    = document.getElementById('repete_boleto');
 const divCamposRepeticao = document.getElementById('campos_repeticao');
 const tabelaPrevia       = document.getElementById('tabela_previa');
 
 const maskOpts = {
-    prefix: '',
-    fixed: true,
-    fractionDigits: 2,
-    decimalSeparator: ',',
-    thousandsSeparator: '.',
-    cursor: 'end'
+    prefix: '', fixed: true, fractionDigits: 2,
+    decimalSeparator: ',', thousandsSeparator: '.', cursor: 'end'
 };
 
 function getValorFloat() {
     const raw = campoValor.value.trim();
     if (!raw) return 0;
-    const en = raw.replace(/\./g, '').replace(',', '.');
-    return parseFloat(en) || 0;
+    return parseFloat(raw.replace(/\./g, '').replace(',', '.')) || 0;
 }
 
-function floatToBr(valor) {
-    return valor.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+function floatToBr(v) {
+    return v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
+
+// ─── Segmentos FEBRABAN ───────────────────────────────────────────────────────
+const SEGMENTOS = {
+    '1':'Prefeitura', '2':'Energia Elétrica / Gás', '3':'Telecomunicações',
+    '4':'Multas de Trânsito', '5':'Água e Esgoto', '6':'IPTU / ISS',
+    '7':'DPVAT', '8':'Uso Exclusivo Banco', '9':'Uso Exclusivo Empresa',
+};
+
+function detectarTipo(linha) {
+    const t = linha.length;
+    if (t === 47 && !linha.startsWith('8')) return '🏦 Boleto Bancário';
+    if ((t === 47 || t === 48) && linha.startsWith('8'))
+        return '📄 Convênio — ' + (SEGMENTOS[linha[1]] || 'Segmento ' + linha[1]);
+    if (t === 44 && !linha.startsWith('8')) return '🏦 Boleto Bancário (cód. barras)';
+    if (t === 44 &&  linha.startsWith('8')) return '📄 Convênio (cód. barras)';
+    return `❓ Formato não reconhecido (${t} dígitos)`;
+}
+
+// ─── Monta codigo44 do convênio 48d ──────────────────────────────────────────
+function convenio48paraCodigo44(l) {
+    return l.substring(0, 11) + l.substring(12, 23)
+         + l.substring(24, 35) + l.substring(36, 47);
+}
+
+// ─── Extração de dados ───────────────────────────────────────────────────────
+//
+// CONVÊNIO codigo44:
+//   pos  0-1  = produto + segmento
+//   pos  2    = tipo_valor
+//   pos  3-4  = reservado (zeros)
+//   pos  5-14 = VALOR (10d)
+//   pos 15-43 = campo livre (29d):
+//     [0:19]  = identificador banco/cedente (igual p/ todos os boletos do emissor)
+//     [19:]   = UC / conta do cliente (diferencia contas do mesmo emissor)
+//
+//   conta_origem = produto(1) + segmento(1) + campo_livre[0:20] = 22d
+//   → Garante que duas contas COMPESA gerem chaves DIFERENTES
+//
+// BANCÁRIO 47d:
+//   valor     = últimos 10d
+//   vencimento = fator + 07/10/1997
+//   conta_origem = banco(3) + campo_livre[0:19] = 22d
+// ─────────────────────────────────────────────────────────────────────────────
+function extrairDados(linha) {
+    const t = linha.length;
+    let valor = 0, vencimento = null, conta = '', assinatura = '';
+
+    if (t === 48 && linha.startsWith('8')) {
+        const c44 = convenio48paraCodigo44(linha);
+        valor     = parseFloat(c44.substring(5, 15)) / 100;
+        const cl  = c44.substring(15);
+        conta     = c44.substring(0, 2) + cl.substring(0, 20); // 22d
+        assinatura = conta;
+    }
+    else if (t === 47 && linha.startsWith('8')) {
+        const c44 = linha.substring(0, 11) + linha.substring(12, 23)
+                  + linha.substring(24, 35) + linha.substring(36, 47);
+        valor     = parseFloat(c44.substring(5, 15)) / 100;
+        const cl  = c44.substring(15);
+        conta     = c44.substring(0, 2) + cl.substring(0, 20);
+        assinatura = conta;
+    }
+    else if (t === 47 && !linha.startsWith('8')) {
+        valor = parseFloat(linha.slice(-10)) / 100;
+        const fator = parseInt(linha.substring(33, 37));
+        if (fator > 1000) {
+            const base = new Date('1997-10-07T00:00:00');
+            base.setDate(base.getDate() + fator);
+            vencimento = base.toISOString().split('T')[0];
+        }
+        const cl   = linha.substring(4, 9) + linha.substring(11, 21) + linha.substring(22, 32);
+        conta      = linha.substring(0, 3) + cl.substring(0, 19); // 22d
+        assinatura = linha.substring(0, 3) + cl.substring(0, 18);
+    }
+    else if (t === 44) {
+        if (linha.startsWith('8')) {
+            valor  = parseFloat(linha.substring(5, 15)) / 100;
+            conta  = linha.substring(0, 2) + linha.substring(15, 35); // 22d
+        } else {
+            valor  = parseFloat(linha.substring(34, 44)) / 100;
+            const fator = parseInt(linha.substring(30, 34));
+            if (fator > 1000) {
+                const base = new Date('1997-10-07T00:00:00');
+                base.setDate(base.getDate() + fator);
+                vencimento = base.toISOString().split('T')[0];
+            }
+            conta = linha.substring(0, 3) + linha.substring(4, 23); // 22d
+        }
+        assinatura = conta;
+    }
+
+    return { valor, vencimento, conta, assinatura };
+}
+
+// ─── Função principal ─────────────────────────────────────────────────────────
+let debounceTimer = null;
 
 function decifrarBoleto(codigo) {
     if (!codigo) return;
+    const linha = codigo.replace(/[^0-9]/g, '');
+    if (linha.length < 10) return;
 
-    let linha = codigo.replace(/[^0-9]/g, '');
-    let valor = 0;
-    let vencimento = null;
-    let assinatura = '';
+    document.getElementById('texto-tipo-boleto').textContent   = detectarTipo(linha);
+    document.getElementById('badge-tipo-boleto').style.display = '';
 
-    if (linha.length >= 44) {
-        verificarDuplicado(linha);
-    }
-
-    if (linha.length === 47) {
-        let valorStr = linha.slice(-10);
-        valor = parseFloat(valorStr) / 100;
-
-        let fatorVencimento = linha.slice(33, 37);
-        if (parseInt(fatorVencimento) > 1000) {
-            let dataBase = new Date('1997-10-07T00:00:00');
-            dataBase.setDate(dataBase.getDate() + parseInt(fatorVencimento));
-            vencimento = dataBase.toISOString().split('T')[0];
-        }
-
-        assinatura = linha.substring(0, 4) + linha.substring(4, 19);
-    }
-    else if (linha.length === 48) {
-        let linhaLimpa = linha.substring(0, 11) +
-                         linha.substring(12, 23) +
-                         linha.substring(24, 35) +
-                         linha.substring(36, 47);
-
-        let valorStr = linhaLimpa.substring(4, 15);
-        valor = parseFloat(valorStr) / 100;
-        assinatura = linhaLimpa.substring(0, 15);
-
-        let dataStr = linhaLimpa.substring(19, 27);
-        if (dataStr.match(/^20[2-9][0-9][0-1][0-9][0-3][0-9]$/)) {
-            vencimento = `${dataStr.substring(0, 4)}-${dataStr.substring(4, 6)}-${dataStr.substring(6, 8)}`;
-        }
-    }
-
-    if (assinatura) {
-        document.getElementById('assinatura_origem').value = assinatura;
-        fetch(`/api/consultar-beneficiario/${assinatura}`)
-            .then(res => res.json())
-            .then(data => {
-                if (data.sucesso && document.getElementsByName('beneficiario')[0].value === '') {
-                    document.getElementsByName('beneficiario')[0].value = data.nome;
-                }
-            });
-    }
+    const { valor, vencimento, conta, assinatura } = extrairDados(linha);
 
     if (valor > 0) {
         campoValor.value = floatToBr(valor);
         campoValor.dispatchEvent(new Event('input'));
     }
-
     if (vencimento) {
-        inputDataVenc.value = vencimento;
-        inputDataVenc.dispatchEvent(new Event('input'));
+        document.getElementById('data_vencimento').value = vencimento;
+    }
+
+    document.getElementById('assinatura_origem').value = assinatura;
+    document.getElementById('conta_origem').value      = conta;
+
+    clearTimeout(debounceTimer);
+    if (conta || assinatura) {
+        debounceTimer = setTimeout(() => buscarBeneficiario(conta, assinatura), 400);
     }
 }
 
-function atualizarInfoParcelas() {
-    const valorUnitario  = getValorFloat();
-    const qtd            = parseInt(inputParcelas.value) || 1;
-    const intervalo      = parseInt(inputIntervalo.value) || 30;
-    const dataInicialStr = inputDataVenc.value;
+// ─── Busca beneficiário no histórico ─────────────────────────────────────────
+async function buscarBeneficiario(conta, assinatura) {
+    const inputBenef = document.getElementById('beneficiario');
+    const spinner    = document.getElementById('spinner-beneficiario');
+    const badge      = document.getElementById('badge-beneficiario-encontrado');
+    const badgeNome  = document.getElementById('badge-nome-beneficiario');
 
-    if (!tabelaPrevia) return;
-    tabelaPrevia.innerHTML = '';
+    if (inputBenef.dataset.manuallyEdited === 'true') return;
+    spinner.style.display = '';
 
-    if (checkboxRepetir.checked && qtd > 1 && valorUnitario > 0 && dataInicialStr) {
-        let dataBase = new Date(dataInicialStr + 'T00:00:00');
+    try {
+        let nome = null;
 
-        for (let i = 0; i < qtd; i++) {
-            let novaData = new Date(dataBase);
-            novaData.setDate(dataBase.getDate() + (i * intervalo));
-            let dataInput  = novaData.toISOString().split('T')[0];
-            let valorInput = floatToBr(valorUnitario);
-
-            let row = `<tr>
-                <td class="align-middle text-nowrap">${i + 1}ª Parcela</td>
-                <td><input type="date" class="form-control form-control-sm"
-                    name="vencimentos_parcelas[]" value="${dataInput}"></td>
-                <td>
-                    <div class="input-group input-group-sm">
-                        <span class="input-group-text">R$</span>
-                        <input type="text" class="form-control form-control-sm parcela-valor"
-                            name="valores_parcelas[]" value="${valorInput}">
-                    </div>
-                </td>
-                <td class="text-center">
-                    <button type="button" class="btn btn-sm btn-link text-danger"
-                        onclick="this.closest('tr').remove(); calcularTotalGeral();">
-                        <i class="fas fa-trash"></i>
-                    </button>
-                </td>
-            </tr>`;
-            tabelaPrevia.innerHTML += row;
+        if (conta) {
+            const r = await fetch(`/api/consultar-conta/${encodeURIComponent(conta)}`);
+            const d = await r.json();
+            if (d.sucesso && d.nome) nome = d.nome;
+        }
+        if (!nome && assinatura && assinatura !== conta) {
+            const r = await fetch(`/api/consultar-beneficiario/${encodeURIComponent(assinatura)}`);
+            const d = await r.json();
+            if (d.sucesso && d.nome) nome = d.nome;
         }
 
-        aplicarMascarasTabela();
-        calcularTotalGeral();
-    } else {
-        infoParcela.innerHTML = '';
+        if (nome) {
+            inputBenef.value    = nome;
+            badgeNome.textContent = nome;
+            badge.style.display   = '';
+        } else {
+            badge.style.display = 'none';
+        }
+    } catch (e) {
+        console.error('Erro ao buscar beneficiário:', e);
+    } finally {
+        spinner.style.display = 'none';
     }
+}
+
+// ─── Parcelamento ─────────────────────────────────────────────────────────────
+function atualizarInfoParcelas() {
+    const v   = getValorFloat();
+    const qtd = parseInt(inputParcelas.value) || 1;
+    const int = parseInt(inputIntervalo.value) || 30;
+    const dt  = inputDataVenc.value;
+    tabelaPrevia.innerHTML = '';
+
+    if (checkboxRepetir.checked && qtd > 1 && v > 0 && dt) {
+        const base = new Date(dt + 'T00:00:00');
+        for (let i = 0; i < qtd; i++) {
+            const d = new Date(base);
+            d.setDate(base.getDate() + i * int);
+            tabelaPrevia.innerHTML += `<tr>
+                <td class="align-middle text-nowrap">${i+1}ª Parcela</td>
+                <td><input type="date" class="form-control form-control-sm"
+                    name="vencimentos_parcelas[]" value="${d.toISOString().split('T')[0]}"></td>
+                <td><div class="input-group input-group-sm">
+                    <span class="input-group-text">R$</span>
+                    <input type="text" class="form-control form-control-sm parcela-valor"
+                        name="valores_parcelas[]" value="${floatToBr(v)}">
+                </div></td>
+                <td class="text-center"><button type="button" class="btn btn-sm btn-link text-danger"
+                    onclick="this.closest('tr').remove();calcularTotalGeral()">
+                    <i class="fas fa-trash"></i></button></td>
+            </tr>`;
+        }
+        aplicarMascarasTabela(); calcularTotalGeral();
+    } else { infoParcela.innerHTML = ''; }
 }
 
 function adicionarParcelaManual() {
-    const qtdAtual      = tabelaPrevia.querySelectorAll('tr').length;
-    const valorUnitario = getValorFloat();
-
-    let dataSugerida = new Date();
-    const ultimasDatas = tabelaPrevia.querySelectorAll('input[type="date"]');
-    if (ultimasDatas.length > 0) {
-        dataSugerida = new Date(ultimasDatas[ultimasDatas.length - 1].value + 'T00:00:00');
-        dataSugerida.setDate(dataSugerida.getDate() + 30);
-    }
-
-    const dataInput  = dataSugerida.toISOString().split('T')[0];
-    const valorInput = floatToBr(valorUnitario);
-
-    const row = `<tr>
-        <td class="align-middle text-nowrap">${qtdAtual + 1}ª Parcela (Extra)</td>
+    const n = tabelaPrevia.querySelectorAll('tr').length;
+    const dts = tabelaPrevia.querySelectorAll('input[type="date"]');
+    let dt = new Date();
+    if (dts.length > 0) { dt = new Date(dts[dts.length-1].value+'T00:00:00'); dt.setDate(dt.getDate()+30); }
+    tabelaPrevia.insertAdjacentHTML('beforeend', `<tr>
+        <td class="align-middle text-nowrap">${n+1}ª Parcela (Extra)</td>
         <td><input type="date" class="form-control form-control-sm"
-            name="vencimentos_parcelas[]" value="${dataInput}"></td>
-        <td>
-            <div class="input-group input-group-sm">
-                <span class="input-group-text">R$</span>
-                <input type="text" class="form-control form-control-sm parcela-valor"
-                    name="valores_parcelas[]" value="${valorInput}">
-            </div>
-        </td>
-        <td class="text-center">
-            <button type="button" class="btn btn-sm btn-link text-danger"
-                onclick="this.closest('tr').remove(); calcularTotalGeral();">
-                <i class="fas fa-trash"></i>
-            </button>
-        </td>
-    </tr>`;
-
-    tabelaPrevia.insertAdjacentHTML('beforeend', row);
-    aplicarMascarasTabela();
-    calcularTotalGeral();
+            name="vencimentos_parcelas[]" value="${dt.toISOString().split('T')[0]}"></td>
+        <td><div class="input-group input-group-sm">
+            <span class="input-group-text">R$</span>
+            <input type="text" class="form-control form-control-sm parcela-valor"
+                name="valores_parcelas[]" value="${floatToBr(getValorFloat())}">
+        </div></td>
+        <td class="text-center"><button type="button" class="btn btn-sm btn-link text-danger"
+            onclick="this.closest('tr').remove();calcularTotalGeral()">
+            <i class="fas fa-trash"></i></button></td>
+    </tr>`);
+    aplicarMascarasTabela(); calcularTotalGeral();
 }
 
 function calcularTotalGeral() {
-    let total = 0;
-    document.querySelectorAll('.parcela-valor').forEach(el => {
-        const en = el.value.replace(/\./g, '').replace(',', '.');
-        total += parseFloat(en) || 0;
+    let t = 0;
+    document.querySelectorAll('.parcela-valor').forEach(e => {
+        t += parseFloat(e.value.replace(/\./g,'').replace(',','.')) || 0;
     });
-
-    if (total > 0) {
-        infoParcela.innerHTML = `Total Final: ${floatToBr(total).replace(/^/, 'R$ ')}`;
-    }
+    if (t > 0) infoParcela.innerHTML = `Total Final: R$ ${floatToBr(t)}`;
 }
 
 function aplicarMascarasTabela() {
-    document.querySelectorAll('.parcela-valor').forEach(el => {
-        if (typeof SimpleMaskMoney !== 'undefined') {
-            SimpleMaskMoney.setMask(el, maskOpts);
+    if (typeof SimpleMaskMoney === 'undefined') return;
+    document.querySelectorAll('.parcela-valor').forEach(e => SimpleMaskMoney.setMask(e, maskOpts));
+}
+
+// ─── Init ─────────────────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', function () {
+    if (typeof SimpleMaskMoney !== 'undefined') SimpleMaskMoney.setMask(campoValor, maskOpts);
+
+    const b = document.getElementById('beneficiario');
+    b.addEventListener('input',  function () { this.dataset.manuallyEdited = 'true'; });
+    b.addEventListener('keyup',  function () {
+        if (this.value === '') {
+            this.dataset.manuallyEdited = 'false';
+            document.getElementById('badge-beneficiario-encontrado').style.display = 'none';
         }
     });
-}
-
-async function verificarDuplicado(codigo) {
-    if (codigo.length < 44) return;
-    try {
-        const response = await fetch(`/api/verificar-boleto-duplicado?codigo=${codigo}`);
-        const data = await response.json();
-
-        if (data.duplicado) {
-            alert(`⚠️ Atenção: Este boleto já foi cadastrado para o beneficiário: ${data.beneficiario} em ${data.data_cadastro}`);
-            document.getElementById('codigo_barras').classList.add('is-invalid');
-        } else {
-            document.getElementById('codigo_barras').classList.remove('is-invalid');
-        }
-    } catch (e) {
-        console.error("Erro ao validar duplicidade");
-    }
-}
-
-document.addEventListener('DOMContentLoaded', function () {
-
-    if (typeof SimpleMaskMoney !== 'undefined') {
-        SimpleMaskMoney.setMask(campoValor, maskOpts);
-    }
 
     checkboxRepetir.addEventListener('change', function () {
         divCamposRepeticao.style.display = this.checked ? 'block' : 'none';
@@ -372,17 +427,12 @@ document.addEventListener('DOMContentLoaded', function () {
         atualizarInfoParcelas();
     });
 
-    tabelaPrevia.addEventListener('input', function (e) {
-        if (e.target.classList.contains('parcela-valor')) {
-            calcularTotalGeral();
-        }
+    tabelaPrevia.addEventListener('input', e => {
+        if (e.target.classList.contains('parcela-valor')) calcularTotalGeral();
     });
 
     [campoValor, inputParcelas, inputIntervalo, inputDataVenc].forEach(el => {
         if (el) el.addEventListener('input', atualizarInfoParcelas);
-    });
-
-    document.getElementById('form-boleto').addEventListener('submit', function () {
     });
 });
 </script>

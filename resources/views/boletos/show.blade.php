@@ -1,113 +1,107 @@
 <x-app-layout>
-    <x-slot name="header">
-        <h2 class="font-semibold text-xl text-gray-800 leading-tight">
-            {{ __('Visualizar Código de Barras') }}
-        </h2>
-    </x-slot>
+    <div class="py-12 bg-[#fafafa] min-h-screen font-sans antialiased text-slate-900">
+        <div class="max-w-2xl mx-auto px-4">
 
-    <div class="py-12">
-        <div class="max-w-4xl mx-auto sm:px-6 lg:px-8">
-            <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg p-8 text-center">
-
-                {{-- Badge do tipo do boleto --}}
-                <div class="mb-6">
-                    @if($tipo === 'bancario')
-                        <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800">
-                            🏦 Boleto Bancário
-                        </span>
-                    @elseif($tipo === 'convenio')
-                        <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">
-                            ⚡ Convênio / Concessionária
-                        </span>
-                    @else
-                        <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-yellow-100 text-yellow-800">
-                            ⚠️ Tipo não identificado
-                        </span>
-                    @endif
+            <div class="flex items-center justify-between mb-8">
+                <div>
+                    <h1 class="text-2xl font-semibold tracking-tight">Cobrança</h1>
+                    <p class="text-sm text-slate-500">Detalhes e código para pagamento</p>
                 </div>
-
-                {{-- Aviso de erro --}}
-                @if($aviso)
-                    <div class="bg-red-50 border border-red-300 text-red-800 px-4 py-3 rounded mb-6 text-left text-sm">
-                        ⚠️ {{ $aviso }}
-                    </div>
-                @endif
-
-                {{-- Dados do boleto --}}
-                <div class="grid grid-cols-2 gap-4 text-left mb-8 bg-gray-50 p-4 rounded border">
-                    <div>
-                        <span class="text-xs text-gray-500 uppercase tracking-wide">Beneficiário</span>
-                        <p class="font-semibold text-gray-800 mt-1">{{ $boleto->beneficiario }}</p>
-                    </div>
-                    <div>
-                        <span class="text-xs text-gray-500 uppercase tracking-wide">Valor</span>
-                        <p class="font-semibold text-gray-800 mt-1">R$ {{ number_format($boleto->valor, 2, ',', '.') }}</p>
-                    </div>
-                    <div>
-                        <span class="text-xs text-gray-500 uppercase tracking-wide">Vencimento</span>
-                        <p class="font-semibold text-gray-800 mt-1">
-                            {{ \Carbon\Carbon::parse($boleto->data_vencimento)->format('d/m/Y') }}
-                        </p>
-                    </div>
-                    <div>
-                        <span class="text-xs text-gray-500 uppercase tracking-wide">Status</span>
-                        <p class="font-semibold mt-1 {{ $boleto->status === 'pago' ? 'text-green-600' : 'text-red-500' }}">
-                            {{ ucfirst($boleto->status) }}
-                        </p>
-                    </div>
-                </div>
-
-                {{-- Linha digitável original --}}
-                <h3 class="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-2 text-left">Linha Digitável</h3>
-                <div class="bg-gray-100 p-4 rounded mb-6 font-mono text-base border break-all text-left">
-                    {{ $numero }}
-                    <span class="text-xs text-gray-400 ml-2">({{ $tamanho }} dígitos)</span>
-                </div>
-
-                {{-- Código de barras gerado (44 dígitos) --}}
-                <h3 class="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-2 text-left">Código de Barras (44 dígitos)</h3>
-                <div class="bg-gray-100 p-4 rounded mb-6 font-mono text-sm border break-all text-left text-gray-600">
-                    {{ $codigo44 }}
-                </div>
-
-                {{-- SVG do código de barras --}}
-                <h3 class="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-4 text-left">Código de Barras</h3>
-                <div class="overflow-x-auto mb-8 border rounded p-4 bg-white">
-                    <div style="width: 100%; min-width: 600px;">
-                        <div class="barcode-svg-wrapper">
-                            {!! $barcode !!}
-                        </div>
-                    </div>
-                </div>
-
-                <div class="flex justify-between items-center border-t pt-6">
-                    <a href="{{ route('dashboard') }}" class="text-blue-600 hover:underline text-sm">
-                        &larr; Voltar para a lista
-                    </a>
-                    <button onclick="window.print()" class="bg-black text-white px-6 py-2 rounded font-bold shadow hover:bg-gray-800 transition text-sm">
-                        🖨️ Imprimir / Salvar PDF
+                <div class="flex gap-2">
+                    <button onclick="window.print()" class="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors border border-slate-200 bg-white hover:bg-slate-100 h-9 px-4">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" /></svg>
+                        Imprimir
                     </button>
                 </div>
+            </div>
 
+            <div class="rounded-lg border border-slate-200 bg-white shadow-sm overflow-hidden">
+
+                <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+                    <div class="flex items-center gap-2">
+                        <div class="h-2 w-2 rounded-full {{ $boleto->status === 'pago' ? 'bg-emerald-500' : 'bg-amber-500' }}"></div>
+                        <span class="text-xs font-medium uppercase tracking-wider text-slate-600">{{ $boleto->status }}</span>
+                    </div>
+                    <span class="text-[11px] font-medium px-2 py-0.5 rounded bg-slate-200 text-slate-700 uppercase">{{ $tipo }}</span>
+                </div>
+
+                <div class="p-6">
+                    <div class="grid grid-cols-2 gap-y-6 gap-x-4 mb-8">
+                        <div class="space-y-1">
+                            <p class="text-[11px] font-medium text-slate-400 uppercase tracking-tight">Beneficiário</p>
+                            <p class="text-sm font-semibold leading-none">{{ $boleto->beneficiario }}</p>
+                        </div>
+                        <div class="space-y-1 text-right">
+                            <p class="text-[11px] font-medium text-slate-400 uppercase tracking-tight">Vencimento</p>
+                            <p class="text-sm font-semibold leading-none {{ $boleto->data_vencimento < now() ? 'text-red-600' : '' }}">
+                                {{ \Carbon\Carbon::parse($boleto->data_vencimento)->format('d/m/Y') }}
+                            </p>
+                        </div>
+                        <div class="col-span-2 pt-4 border-t border-slate-50">
+                            <p class="text-[11px] font-medium text-slate-400 uppercase tracking-tight mb-2">Valor Total</p>
+                            <p class="text-3xl font-bold tracking-tighter text-slate-950 italic">R$ {{ number_format($boleto->valor, 2, ',', '.') }}</p>
+                        </div>
+                    </div>
+
+                    <div class="space-y-2 mb-8">
+                        <label class="text-[11px] font-medium text-slate-400 uppercase tracking-tight">Linha Digitável</label>
+                        <div class="flex gap-2">
+                            <div id="copy-area" class="flex-1 bg-slate-50 border border-slate-200 rounded-md px-3 py-2 text-sm font-mono text-slate-600 break-all leading-relaxed">
+                                {{ $numero }}
+                            </div>
+                            <button onclick="copyCode()" class="inline-flex items-center justify-center rounded-md bg-slate-900 text-white hover:bg-slate-800 px-3 py-2 text-xs font-medium transition-all active:scale-95">
+                                <span id="btn-text">Copiar</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="flex flex-col items-center justify-center py-6 border-2 border-dashed border-slate-100 rounded-xl bg-white">
+                         <div class="barcode-container opacity-80 hover:opacity-100 transition-opacity">
+                            {!! $barcode !!}
+                         </div>
+                         <p class="mt-4 font-mono text-[10px] text-slate-400 tracking-widest">{{ $codigo44 }}</p>
+                    </div>
+
+                </div>
+
+                <div class="px-6 py-4 bg-slate-50 border-t border-slate-100 flex justify-between items-center">
+                    <a href="{{ route('dashboard') }}" class="text-xs font-medium text-slate-500 hover:text-slate-900 transition-colors">
+                        &larr; Voltar ao início
+                    </a>
+                    <p class="text-[10px] text-slate-400 font-mono">ID: #{{ str_pad($boleto->id, 6, '0', STR_PAD_LEFT) }}</p>
+                </div>
             </div>
         </div>
     </div>
 
     <style>
-        .barcode-svg-wrapper svg {
-            width: 100% !important;
-            height: 100px !important;
-            display: block;
+        .barcode-container svg {
+            height: 65px !important;
+            width: auto !important;
+            max-width: 100%;
         }
         @media print {
-            body { background: white; }
-            .barcode-svg-wrapper svg {
-                width: 100% !important;
-                height: 100px !important;
-                -webkit-print-color-adjust: exact !important;
-                print-color-adjust: exact !important;
-            }
-            button, a { display: none; }
+            .py-12 { background: white !important; padding: 0 !important; }
+            .shadow-sm, .border { border: none !important; box-shadow: none !important; }
+            button, a { display: none !important; }
+            .bg-slate-50 { background: white !important; }
         }
     </style>
+
+    <script>
+        function copyCode() {
+            const text = document.getElementById('copy-area').innerText;
+            const btnText = document.getElementById('btn-text');
+
+            navigator.clipboard.writeText(text).then(() => {
+                btnText.innerText = 'Copiado!';
+                btnText.parentElement.classList.replace('bg-slate-900', 'bg-emerald-600');
+
+                setTimeout(() => {
+                    btnText.innerText = 'Copiar';
+                    btnText.parentElement.classList.replace('bg-emerald-600', 'bg-slate-900');
+                }, 2000);
+            });
+        }
+    </script>
 </x-app-layout>

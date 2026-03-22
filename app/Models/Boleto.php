@@ -14,7 +14,8 @@ class Boleto extends Model
         'status',
         'data_pagamento',
         'user_id',
-        'linha_digitavel'
+        'linha_digitavel',
+        'assinatura_origem'
     ];
 
     public function user()
