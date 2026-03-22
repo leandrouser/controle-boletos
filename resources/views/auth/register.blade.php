@@ -11,6 +11,12 @@
 
         <!-- Email Address -->
         <div class="mt-4">
+    <x-input-label for="email" :value="__('Email')" />
+    <x-text-input id="email" class="block mt-1 w-full" type="email" name="email" :value="old('email')" required autocomplete="username" />
+    <x-input-error :messages="$errors->get('email')" class="mt-2" />
+</div>
+
+<div class="mt-4">
     <x-input-label for="phone" :value="__('Telefone')" />
     <x-text-input id="phone" class="block mt-1 w-full" type="text" name="phone" :value="old('phone')" required />
     <x-input-error :messages="$errors->get('phone')" class="mt-2" />
@@ -49,4 +55,11 @@
             </x-primary-button>
         </div>
     </form>
+    <script>
+    const phoneInput = document.getElementById('phone');
+    phoneInput.addEventListener('input', (e) => {
+        let x = e.target.value.replace(/\D/g, '').match(/(\d{0,2})(\d{0,5})(\d{0,4})/);
+        e.target.value = !x[2] ? x[1] : '(' + x[1] + ') ' + x[2] + (x[3] ? '-' + x[3] : '');
+    });
+</script>
 </x-guest-layout>
