@@ -49,10 +49,7 @@
                             <label class="form-label fw-bold">Valor do Boleto</label>
                             <div class="input-group">
                                 <span class="input-group-text bg-white">R$</span>
-                                {{--
-                                    Valor exibido no formato BR (ex: 1.234,56).
-                                    O controller usa parseBrValue() para converter ao salvar.
-                                --}}
+                            
                                 <input type="text" id="campo_valor" name="valor"
                                     class="form-control" inputmode="decimal"
                                     value="{{ number_format($boleto->valor, 2, ',', '.') }}"
@@ -113,7 +110,6 @@
 document.addEventListener('DOMContentLoaded', function () {
     const campoValor = document.getElementById('campo_valor');
 
-    // Aplica máscara BR no campo de valor
     if (typeof SimpleMaskMoney !== 'undefined' && campoValor) {
         SimpleMaskMoney.setMask(campoValor, {
             prefix: '',
@@ -125,10 +121,6 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
-    /*
-     * SUBMIT — o campo já está no formato BR (ex: "1.234,56").
-     * Não convertemos aqui; o controller parseBrValue() faz isso corretamente.
-     */
 });
 </script>
 @endsection

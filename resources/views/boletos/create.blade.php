@@ -57,11 +57,7 @@
                             <label class="form-label fw-bold">Valor do Boleto</label>
                             <div class="input-group">
                                 <span class="input-group-text bg-white">R$</span>
-                                {{--
-                                    O campo envia o valor no formato BR (ex: 1.234,56).
-                                    O controller usa parseBrValue() para converter corretamente.
-                                    NÃO convertemos para número no JS antes do submit.
-                                --}}
+                            
                                 <input type="text" id="campo_valor" name="valor"
                                     class="form-control" placeholder="0,00"
                                     inputmode="decimal" required>
@@ -148,7 +144,6 @@
     </div>
 </div>
 
-{{-- Máscara de dinheiro BR --}}
 <script src="https://unpkg.com/simple-mask-money@3.0.0/lib/simple-mask-money.min.js"></script>
 
 <script>
@@ -161,7 +156,6 @@ const checkboxRepetir    = document.getElementById('repete_boleto');
 const divCamposRepeticao = document.getElementById('campos_repeticao');
 const tabelaPrevia       = document.getElementById('tabela_previa');
 
-// Opções padrão da máscara BR
 const maskOpts = {
     prefix: '',
     fixed: true,
@@ -171,26 +165,16 @@ const maskOpts = {
     cursor: 'end'
 };
 
-/**
- * Lê o valor do campo principal e retorna como float.
- * O campo está no formato BR (ex: "1.234,56") — converte corretamente.
- */
 function getValorFloat() {
     const raw = campoValor.value.trim();
     if (!raw) return 0;
-    // Remove separador de milhar (ponto) e troca vírgula decimal por ponto
     const en = raw.replace(/\./g, '').replace(',', '.');
     return parseFloat(en) || 0;
 }
 
-/**
- * Formata um número float para string no padrão BR (ex: 1234.56 → "1.234,56")
- */
 function floatToBr(valor) {
     return valor.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
-
-// ─── Decifragem automática de código de barras ───────────────────────────────
 
 function decifrarBoleto(codigo) {
     if (!codigo) return;
@@ -245,7 +229,6 @@ function decifrarBoleto(codigo) {
     }
 
     if (valor > 0) {
-        // Preenche o campo já no formato BR com a máscara aplicada
         campoValor.value = floatToBr(valor);
         campoValor.dispatchEvent(new Event('input'));
     }
@@ -255,8 +238,6 @@ function decifrarBoleto(codigo) {
         inputDataVenc.dispatchEvent(new Event('input'));
     }
 }
-
-// ─── Prévia de parcelas ───────────────────────────────────────────────────────
 
 function atualizarInfoParcelas() {
     const valorUnitario  = getValorFloat();
@@ -274,7 +255,6 @@ function atualizarInfoParcelas() {
             let novaData = new Date(dataBase);
             novaData.setDate(dataBase.getDate() + (i * intervalo));
             let dataInput  = novaData.toISOString().split('T')[0];
-            // Valor no formato BR para exibição e envio
             let valorInput = floatToBr(valorUnitario);
 
             let row = `<tr>
@@ -380,11 +360,8 @@ async function verificarDuplicado(codigo) {
     }
 }
 
-// ─── Init ─────────────────────────────────────────────────────────────────────
-
 document.addEventListener('DOMContentLoaded', function () {
 
-    // Aplica máscara BR no campo de valor principal
     if (typeof SimpleMaskMoney !== 'undefined') {
         SimpleMaskMoney.setMask(campoValor, maskOpts);
     }
@@ -405,13 +382,7 @@ document.addEventListener('DOMContentLoaded', function () {
         if (el) el.addEventListener('input', atualizarInfoParcelas);
     });
 
-    /*
-     * SUBMIT — os campos já estão no formato BR (ex: "1.234,56").
-     * O controller parseBrValue() converte corretamente.
-     * Não fazemos nenhuma conversão aqui para não corromper o valor.
-     */
     document.getElementById('form-boleto').addEventListener('submit', function () {
-        // Nada a fazer — campos enviados no formato BR diretamente.
     });
 });
 </script>

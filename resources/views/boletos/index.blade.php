@@ -106,7 +106,6 @@
     </div>
 
     <div class="card border-0 shadow-sm">
-        {{-- Form exclusivo para pagar em lote --}}
         <form action="{{ route('boletos.pagarLote') }}" method="POST" id="form-lote">
             @csrf
             <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
@@ -168,7 +167,6 @@
                                     <td class="pe-4 text-center">
                                         <div class="btn-group shadow-sm">
                                             @if($boleto->status == 'pendente')
-                                                {{-- Botão pagar individual usa form externo via atributo form= --}}
                                                 <button type="submit"
                                                     form="form-pagar-{{ $boleto->id }}"
                                                     class="btn btn-sm btn-success"
@@ -207,11 +205,6 @@
     </div>
 </div>
 
-{{--
-    Forms de pagar e excluir individuais ficam FORA do form-lote.
-    O HTML não permite forms aninhados — colocá-los aqui garante funcionamento correto.
-    Os botões dentro da tabela referenciam estes forms via atributo form="form-pagar-{id}".
---}}
 @foreach($boletos as $boleto)
     <form id="form-pagar-{{ $boleto->id }}"
           action="{{ route('boletos.pagar', $boleto->id) }}"
