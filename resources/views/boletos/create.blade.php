@@ -11,20 +11,6 @@
             </div>
             <div class="card-body p-4">
 
-                @if(session('success'))
-                    <div class="alert alert-success border-0 shadow-sm d-flex align-items-center" role="alert">
-                        <i class="fas fa-check-circle me-2"></i>
-                        <div>{{ session('success') }}</div>
-                    </div>
-                @endif
-
-                @if(session('error'))
-                    <div class="alert alert-danger border-0 shadow-sm d-flex align-items-center" role="alert">
-                        <i class="fas fa-exclamation-circle me-2"></i>
-                        <div>{{ session('error') }}</div>
-                    </div>
-                @endif
-
                 <form action="{{ route('boletos.store') }}" method="POST" id="form-boleto">
                     @csrf
 
@@ -91,18 +77,24 @@
 
                     <div class="mt-3 p-3 border rounded bg-light">
                         <div class="form-check form-switch mb-2">
-                            <input class="form-check-input" type="checkbox" id="repete_boleto" name="repetir">
-                            <label class="form-check-label fw-bold" for="repete_boleto">
+                            <input class="form-check-input" type="checkbox" id="repete_boleto" name="repete_boleto"> <label class="form-check-label fw-bold" for="repete_boleto">
                                 Repetir este lançamento (Parcelamento)
                             </label>
                         </div>
 
                         <div id="campos_repeticao" style="display: none;" class="mt-3 p-3 bg-white border rounded shadow-sm">
+                            <div class="form-check form-switch mb-3 p-2 bg-primary-subtle rounded border border-primary-subtle">
+                                <input class="form-check-input ms-0 me-2" type="checkbox" id="data_fixa_toggle" checked>
+                                <label class="form-check-label fw-bold text-primary" for="data_fixa_toggle">
+                                    <i class="fas fa-calendar-check me-1"></i> Manter o mesmo dia do mês (Data Fixa)
+                                </label>
+                                <div class="small text-muted ms-4">Ativado: Mantém o dia (Ex: todo dia 08). Desativado: Soma os dias corridos.</div>
+                            </div>
+
                             <div class="row align-items-end mb-3">
                                 <div class="col-md-4">
                                     <label class="form-label small fw-bold">Qtd de Parcelas</label>
-                                    <input type="number" name="parcelas" id="input_parcelas"
-                                        class="form-control" value="2" min="2" max="72">
+                                    <input type="number" name="parcelas" id="input_parcelas" class="form-control" value="2" min="2" max="72">
                                 </div>
                                 <div class="col-md-5">
                                     <label class="form-label small fw-bold">Intervalo entre parcelas</label>
@@ -117,28 +109,24 @@
                                     <small class="text-primary fw-bold d-block mb-2" id="info-parcela"></small>
                                 </div>
                             </div>
-                            <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
-                                <div class="d-flex justify-content-between align-items-center mb-2">
-                                    <h6 class="mb-0 fw-bold text-muted">Conferência de Parcelas</h6>
-                                    <button type="button" class="btn btn-sm btn-outline-primary"
-                                        onclick="adicionarParcelaManual()">
-                                        <i class="fas fa-plus me-1"></i> Adicionar Parcela Avulsa
-                                    </button>
-                                </div>
+
+                            <div class="table-responsive">
                                 <table class="table table-sm table-hover border">
                                     <thead class="table-light">
                                         <tr>
-                                            <th>Parcela</th><th>Vencimento</th>
-                                            <th>Valor (R$)</th><th class="text-center">Ação</th>
+                                            <th>Parcela</th>
+                                            <th>Vencimento</th>
+                                            <th>Valor</th>
+                                            <th class="text-center">Ações</th>
                                         </tr>
                                     </thead>
-                                    <tbody id="tabela_previa"></tbody>
+                                    <tbody id="tabela_previa">
+                                        </tbody>
                                 </table>
+                                <button type="button" class="btn btn-sm btn-outline-primary" onclick="adicionarParcelaManual()">
+                                    <i class="fas fa-plus me-1"></i> Adicionar Parcela Extra
+                                </button>
                             </div>
-                            <p class="small text-muted mt-2 mb-0">
-                                <i class="fas fa-info-circle"></i>
-                                As datas acima são previsões baseadas no intervalo escolhido.
-                            </p>
                         </div>
                     </div>
 
@@ -166,6 +154,7 @@ const infoParcela        = document.getElementById('info-parcela');
 const checkboxRepetir    = document.getElementById('repete_boleto');
 const divCamposRepeticao = document.getElementById('campos_repeticao');
 const tabelaPrevia       = document.getElementById('tabela_previa');
+const toggleDataFixa     = document.getElementById('data_fixa_toggle');
 
 const maskOpts = {
     prefix: '', fixed: true, fractionDigits: 2,
@@ -182,7 +171,6 @@ function floatToBr(v) {
     return v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
-// ─── Segmentos FEBRABAN ───────────────────────────────────────────────────────
 const SEGMENTOS = {
     '1':'Prefeitura', '2':'Energia Elétrica / Gás', '3':'Telecomunicações',
     '4':'Multas de Trânsito', '5':'Água e Esgoto', '6':'IPTU / ISS',
@@ -199,31 +187,11 @@ function detectarTipo(linha) {
     return `❓ Formato não reconhecido (${t} dígitos)`;
 }
 
-// ─── Monta codigo44 do convênio 48d ──────────────────────────────────────────
 function convenio48paraCodigo44(l) {
     return l.substring(0, 11) + l.substring(12, 23)
          + l.substring(24, 35) + l.substring(36, 47);
 }
 
-// ─── Extração de dados ───────────────────────────────────────────────────────
-//
-// CONVÊNIO codigo44:
-//   pos  0-1  = produto + segmento
-//   pos  2    = tipo_valor
-//   pos  3-4  = reservado (zeros)
-//   pos  5-14 = VALOR (10d)
-//   pos 15-43 = campo livre (29d):
-//     [0:19]  = identificador banco/cedente (igual p/ todos os boletos do emissor)
-//     [19:]   = UC / conta do cliente (diferencia contas do mesmo emissor)
-//
-//   conta_origem = produto(1) + segmento(1) + campo_livre[0:20] = 22d
-//   → Garante que duas contas COMPESA gerem chaves DIFERENTES
-//
-// BANCÁRIO 47d:
-//   valor     = últimos 10d
-//   vencimento = fator + 07/10/1997
-//   conta_origem = banco(3) + campo_livre[0:19] = 22d
-// ─────────────────────────────────────────────────────────────────────────────
 function extrairDados(linha) {
     const t = linha.length;
     let valor = 0, vencimento = null, conta = '', assinatura = '';
@@ -311,6 +279,7 @@ async function buscarBeneficiario(conta, assinatura) {
     const spinner    = document.getElementById('spinner-beneficiario');
     const badge      = document.getElementById('badge-beneficiario-encontrado');
     const badgeNome  = document.getElementById('badge-nome-beneficiario');
+    const toggleDataFixa = document.getElementById('data_fixa_toggle');
 
     if (inputBenef.dataset.manuallyEdited === 'true') return;
     spinner.style.display = '';
@@ -343,23 +312,39 @@ async function buscarBeneficiario(conta, assinatura) {
     }
 }
 
-// ─── Parcelamento ─────────────────────────────────────────────────────────────
 function atualizarInfoParcelas() {
     const v   = getValorFloat();
     const qtd = parseInt(inputParcelas.value) || 1;
     const int = parseInt(inputIntervalo.value) || 30;
     const dt  = inputDataVenc.value;
+    const ehDataFixa = toggleDataFixa.checked;
+
     tabelaPrevia.innerHTML = '';
 
     if (checkboxRepetir.checked && qtd > 1 && v > 0 && dt) {
-        const base = new Date(dt + 'T00:00:00');
+        const [year, month, day] = dt.split('-').map(Number);
+
         for (let i = 0; i < qtd; i++) {
-            const d = new Date(base);
-            d.setDate(base.getDate() + i * int);
+            let d = new Date(year, month - 1, day);
+
+            if (ehDataFixa) {
+                 if (int === 15) {
+                    let diasAdicionais = Math.floor(i / 2) * 30 + (i % 2 === 1 ? 15 : 0);
+                    d.setDate(day + diasAdicionais);
+                } else {
+                    let mesesParaPular = Math.round((int / 30) * i);
+                    d.setMonth(d.getMonth() + mesesParaPular);
+                }
+            } else {
+                d.setDate(d.getDate() + (i * int));
+            }
+
+            const dataFormatada = d.toISOString().split('T')[0];
+
             tabelaPrevia.innerHTML += `<tr>
                 <td class="align-middle text-nowrap">${i+1}ª Parcela</td>
                 <td><input type="date" class="form-control form-control-sm"
-                    name="vencimentos_parcelas[]" value="${d.toISOString().split('T')[0]}"></td>
+                    name="vencimentos_parcelas[]" value="${dataFormatada}"></td>
                 <td><div class="input-group input-group-sm">
                     <span class="input-group-text">R$</span>
                     <input type="text" class="form-control form-control-sm parcela-valor"
@@ -370,8 +355,11 @@ function atualizarInfoParcelas() {
                     <i class="fas fa-trash"></i></button></td>
             </tr>`;
         }
-        aplicarMascarasTabela(); calcularTotalGeral();
-    } else { infoParcela.innerHTML = ''; }
+        aplicarMascarasTabela();
+        calcularTotalGeral();
+    } else {
+        infoParcela.innerHTML = '';
+    }
 }
 
 function adicionarParcelaManual() {
@@ -408,8 +396,8 @@ function aplicarMascarasTabela() {
     document.querySelectorAll('.parcela-valor').forEach(e => SimpleMaskMoney.setMask(e, maskOpts));
 }
 
-// ─── Init ─────────────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', function () {
+    toggleDataFixa.addEventListener('change', atualizarInfoParcelas);
     if (typeof SimpleMaskMoney !== 'undefined') SimpleMaskMoney.setMask(campoValor, maskOpts);
 
     const b = document.getElementById('beneficiario');
@@ -431,8 +419,11 @@ document.addEventListener('DOMContentLoaded', function () {
         if (e.target.classList.contains('parcela-valor')) calcularTotalGeral();
     });
 
-    [campoValor, inputParcelas, inputIntervalo, inputDataVenc].forEach(el => {
-        if (el) el.addEventListener('input', atualizarInfoParcelas);
+    [campoValor, inputParcelas, inputIntervalo, inputDataVenc, toggleDataFixa].forEach(el => {
+    if (el) {
+        el.addEventListener('input', atualizarInfoParcelas);
+        el.addEventListener('change', atualizarInfoParcelas);
+    }
     });
 });
 </script>

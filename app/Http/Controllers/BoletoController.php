@@ -23,15 +23,6 @@ class BoletoController extends Controller
         return (float) $v;
     }
 
-    /**
-     * Monta o código de barras 44d a partir da linha digitável de convênio 48d.
-     *
-     * Linha 48d: 4 blocos de 11 dígitos + 1 DV (sem separadores)
-     *   bloco1: pos  0-10 (11d) + DV pos 11
-     *   bloco2: pos 12-22 (11d) + DV pos 23
-     *   bloco3: pos 24-34 (11d) + DV pos 35
-     *   bloco4: pos 36-46 (11d) + DV pos 47
-     */
     private function convenio48paraCodigo44(string $linha): string
     {
         return substr($linha, 0, 11)
@@ -40,38 +31,16 @@ class BoletoController extends Controller
              . substr($linha, 36, 11);
     }
 
-    /**
-     * Extrai a conta_origem — identificador estável do cedente/conta.
-     *
-     * CONVÊNIO codigo44 (começa com 8):
-     *   pos  0     = produto  (8)
-     *   pos  1     = segmento
-     *   pos  2     = tipo_valor
-     *   pos  3-4   = zeros reservados
-     *   pos  5-14  = valor (NÃO inclui — muda a cada boleto)
-     *   pos 15-43  = campo livre (29d):
-     *     [0:19]   = identificador do banco/cedente (igual em todos os boletos do mesmo emissor)
-     *     [19:]    = unidade consumidora / conta do cliente (DIFERENCIA contas do mesmo emissor)
-     *
-     *   → conta_origem = produto(1) + segmento(1) + campo_livre[0:20] = 22 dígitos
-     *   Usar 20d garante que duas contas do mesmo emissor (ex: duas faturas COMPESA)
-     *   gerem chaves diferentes.
-     *
-     * BANCÁRIO linha digitável 47d:
-     *   → conta_origem = banco(3) + campo_livre[0:19] = 22 dígitos
-     */
     private function extrairContaOrigem(string $linha): ?string
     {
         $tam = strlen($linha);
 
-        // Convênio linha digitável 48d
         if ($tam === 48 && str_starts_with($linha, '8')) {
             $c44        = $this->convenio48paraCodigo44($linha);
             $campoLivre = substr($c44, 15);
             return substr($c44, 0, 2) . substr($campoLivre, 0, 20);
         }
 
-        // Convênio linha digitável 47d
         if ($tam === 47 && str_starts_with($linha, '8')) {
             $c44 = substr($linha, 0, 11)
                  . substr($linha, 12, 11)
@@ -81,13 +50,11 @@ class BoletoController extends Controller
             return substr($c44, 0, 2) . substr($campoLivre, 0, 20);
         }
 
-        // Convênio código de barras 44d direto
         if ($tam === 44 && str_starts_with($linha, '8')) {
             $campoLivre = substr($linha, 15);
             return substr($linha, 0, 2) . substr($campoLivre, 0, 20);
         }
 
-        // Bancário linha digitável 47d
         if ($tam === 47 && !str_starts_with($linha, '8')) {
             $campoLivre = substr($linha, 4, 5)
                         . substr($linha, 11, 10)
@@ -95,17 +62,12 @@ class BoletoController extends Controller
             return substr($linha, 0, 3) . substr($campoLivre, 0, 19);
         }
 
-        // Bancário código de barras 44d direto
         if ($tam === 44 && !str_starts_with($linha, '8')) {
             return substr($linha, 0, 3) . substr($linha, 4, 19);
         }
 
         return null;
     }
-
-    // -------------------------------------------------------------------------
-    // CRUD
-    // -------------------------------------------------------------------------
 
     public function create()
     {
@@ -138,7 +100,6 @@ class BoletoController extends Controller
         $assinatura       = $request->input('assinatura_origem');
         $nomeBeneficiario = $request->input('beneficiario');
 
-        // Garante extração no servidor mesmo se o JS não enviou
         if (empty($contaOrigem) && $codigoLimpo) {
             $contaOrigem = $this->extrairContaOrigem($codigoLimpo);
         }
@@ -146,8 +107,7 @@ class BoletoController extends Controller
             $assinatura = $contaOrigem;
         }
 
-        $isParcelado = $request->has('repetir') && $request->has('vencimentos_parcelas');
-
+            $isParcelado = $request->has('repete_boleto') && $request->has('vencimentos_parcelas');
         if ($isParcelado) {
             $vencimentos = $request->input('vencimentos_parcelas');
             $valores     = $request->input('valores_parcelas');
@@ -159,6 +119,7 @@ class BoletoController extends Controller
                     'valor'             => $this->parseBrValue($valores[$index]),
                     'data_vencimento'   => $data,
                     'codigo_barras'     => $codigoLimpo,
+                    'linha_digitavel'   => $request->codigo_barras,
                     'assinatura_origem' => $assinatura,
                     'status'            => 'pendente',
                     'user_id'           => $userId,
@@ -176,7 +137,6 @@ class BoletoController extends Controller
             ]);
         }
 
-        // Grava vínculo conta_origem → nome do beneficiário
         if (!empty($contaOrigem) && !empty($nomeBeneficiario)) {
             BeneficiarioIdentificado::updateOrInsert(
                 ['conta_origem' => $contaOrigem],
@@ -189,15 +149,16 @@ class BoletoController extends Controller
             );
         }
 
-        return redirect()->back()->with('success', 'Boleto(s) cadastrado(s) com sucesso!');
-    }
+        $mensagem = $isParcelado
+            ? "Sucesso! Foram gerados {$total} boletos para {$nomeBeneficiario}."
+            : "Boleto de {$nomeBeneficiario} cadastrado com sucesso!";
 
-    // -------------------------------------------------------------------------
-    // APIs INTERNAS
-    // -------------------------------------------------------------------------
+        return redirect()->back()->with('success', $mensagem);
 
-    public function verificarDuplicado(Request $request)
-    {
+        }
+
+        public function verificarDuplicado(Request $request)
+        {
         $codigo = preg_replace('/[^0-9]/', '', $request->query('codigo'));
         $boleto = Boleto::where('codigo_barras', $codigo)->first();
 
@@ -231,10 +192,6 @@ class BoletoController extends Controller
             'nome'    => $identificado ? $identificado->nome_sugerido : null,
         ]);
     }
-
-    // -------------------------------------------------------------------------
-    // INDEX
-    // -------------------------------------------------------------------------
 
     public function index(Request $request)
     {
@@ -271,10 +228,6 @@ class BoletoController extends Controller
             'qtdDia', 'qtdSemana', 'qtdMes'
         ));
     }
-
-    // -------------------------------------------------------------------------
-    // EDIT / UPDATE / DELETE / PAGAR
-    // -------------------------------------------------------------------------
 
     public function edit($id)
     {
@@ -338,10 +291,6 @@ class BoletoController extends Controller
 
         return redirect()->route('dashboard')->with('success', count($ids) . ' boleto(s) pago(s) com sucesso!');
     }
-
-    // -------------------------------------------------------------------------
-    // VISUALIZAR BARCODE
-    // -------------------------------------------------------------------------
 
     public function visualizarBarcode($id)
     {

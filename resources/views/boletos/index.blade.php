@@ -18,20 +18,6 @@
         </div>
     </div>
 
-    @if(session('success'))
-        <div class="alert alert-success border-0 shadow-sm d-flex align-items-center mb-4" role="alert">
-            <i class="fas fa-check-circle me-2"></i>
-            <div>{{ session('success') }}</div>
-        </div>
-    @endif
-
-    @if(session('error'))
-        <div class="alert alert-danger border-0 shadow-sm d-flex align-items-center mb-4" role="alert">
-            <i class="fas fa-exclamation-circle me-2"></i>
-            <div>{{ session('error') }}</div>
-        </div>
-    @endif
-
     {{-- Cards de resumo --}}
     <div class="row g-3 mb-4">
         <div class="col-md-4">

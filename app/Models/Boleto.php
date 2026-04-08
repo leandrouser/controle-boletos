@@ -7,15 +7,15 @@ use Illuminate\Database\Eloquent\Model;
 class Boleto extends Model
 {
     protected $fillable = [
-        'beneficiario',
-        'valor',
-        'data_vencimento',
-        'codigo_barras',
-        'status',
-        'data_pagamento',
-        'user_id',
-        'linha_digitavel',
-        'assinatura_origem'
+    'user_id',
+    'beneficiario',
+    'codigo_barras',
+    'linha_digitavel',
+    'valor',
+    'data_vencimento',
+    'data_pagamento',
+    'assinatura_origem',
+    'status',
     ];
 
     public function user()
