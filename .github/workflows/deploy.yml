@@ -1,30 +1,27 @@
-name: Deploy Automático Laravel
+name: Deploy
 
 on:
   push:
-    branches: [ "main" ]
+    branches:
+      - main
 
 jobs:
-  laravel-deploy:
-    runs-on: self-hosted
-
+  deploy:
+    runs-on: ubuntu-latest
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-
-    - name: Instalar Dependências PHP (Composer)
-      run: composer install --no-dev --optimize-autoloader
-
-    - name: Instalar Dependências JS e Build (Vite)
-      run: |
-        npm install
-        npm run build
-
-    - name: Copiar para Pasta do XAMPP
-      run: xcopy /E /H /Y /I . "C:\xampp\htdocs\controle-boletos"
-
-    - name: Rodar Migrations e Limpar Cache
-      run: |
-        cd C:\xampp\htdocs\controle-boletos
-        php artisan migrate --force
-        php artisan optimize:clear
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: 187.127.29.40
+          username: root
+          key: ${{ secrets.VPS_SSH_KEY }}
+          script: |
+            cd /var/www/controle-boletos
+            git pull origin main
+            composer install --no-dev --no-interaction
+            php artisan migrate --force
+            php artisan config:clear
+            php artisan cache:clear
+            npm install
+            npm run build
+            chown -R www-data:www-data /var/www/controle-boletos
