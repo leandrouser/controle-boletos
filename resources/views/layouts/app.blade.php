@@ -30,32 +30,95 @@
             }
 
             .dark body { background-color: #09090b !important; color: #f8fafc !important; }
-            .dark .bg-light { background-color: #09090b !important; }
-            .dark .bg-white { background-color: #09090b !important; color: #f8fafc !important; }
+            .dark .bg-light { background-color: #18181b !important; }
+            .dark .bg-white { background-color: #111113 !important; color: #f8fafc !important; }
             .dark .text-dark { color: #f8fafc !important; }
             .dark .text-muted { color: #94a3b8 !important; }
 
-            .dark .card { background-color: #09090b; border-color: #27272a !important; color: #f8fafc; }
-            .dark .table { color: #f8fafc; border-color: #27272a; }
-            .dark .table-hover tbody tr:hover { background-color: #18181b; color: #fff; }
-            .dark .border-bottom, .dark .border-top, .dark .card-header, .dark .card-footer { border-color: #27272a !important; }
+            .dark .card { background-color: #111113; border-color: #27272a !important; color: #f8fafc; }
+            .dark .card-header { background-color: #18181b !important; border-color: #27272a !important; }
+            .dark .card-footer { background-color: #18181b !important; border-color: #27272a !important; }
+            .dark .border-bottom, .dark .border-top { border-color: #27272a !important; }
+
+            .dark .table {
+                color: #e2e8f0;
+                border-color: #3f3f46;
+                --bs-table-bg: #111113;
+                --bs-table-striped-bg: #18181b;
+                --bs-table-hover-bg: #27272a;
+            }
+            .dark .table thead th {
+                background-color: #1c1c1f !important;
+                color: #94a3b8 !important;
+                border-bottom: 2px solid #3f3f46 !important;
+                letter-spacing: 0.05em;
+            }
+            .dark .table tbody tr {
+                border-bottom: 1px solid #27272a;
+            }
+            .dark .table tbody tr:hover {
+                background-color: #27272a !important;
+                color: #fff !important;
+            }
+            .dark .table tbody tr:hover td {
+                color: #fff !important;
+            }
+            .dark .table td, .dark .table th {
+                border-color: #3f3f46 !important;
+            }
+            .dark .table-responsive {
+                border: 1px solid #3f3f46;
+                border-radius: 0.5rem;
+            }
+            .dark .bg-danger-subtle { background-color: rgba(239, 68, 68, 0.15) !important; }
+            .dark .text-danger { color: #f87171 !important; }
+            .dark .text-success { color: #34d399 !important; }
+            .dark .text-primary { color: #60a5fa !important; }
+            .dark .text-warning { color: #fbbf24 !important; }
+
+            .dark .badge.bg-success-subtle { background-color: rgba(16,185,129,0.15) !important; }
+            .dark .badge.bg-danger-subtle  { background-color: rgba(239,68,68,0.15)  !important; }
+            .dark .badge.bg-warning-subtle { background-color: rgba(251,191,36,0.15) !important; }
+
+            .dark .btn-white {
+                background-color: #1c1c1f !important;
+                border-color: #3f3f46 !important;
+                color: #e2e8f0 !important;
+            }
+            .dark .btn-white:hover {
+                background-color: #27272a !important;
+            }
 
             .dark .form-control, .dark .form-select {
-                background-color: #09090b;
-                border-color: #27272a;
+                background-color: #18181b;
+                border-color: #3f3f46;
                 color: #f8fafc;
             }
-            .dark .form-control:focus { background-color: #0c0c0e; border-color: #52525b; color: #fff; box-shadow: none; }
+            .dark .form-control:focus {
+                background-color: #1c1c1f;
+                border-color: #52525b;
+                color: #fff;
+                box-shadow: none;
+            }
+            .dark .input-group-text {
+                background-color: #18181b !important;
+                border-color: #3f3f46 !important;
+                color: #94a3b8 !important;
+            }
 
-            .dark .page-link { background-color: #09090b; border-color: #27272a; color: #f8fafc; }
-            .dark .alert-success { background-color: rgba(16, 185, 129, 0.1); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.2); }
-            .dark .alert-danger { background-color: rgba(239, 68, 68, 0.1); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.2); }
+            .dark .page-link { background-color: #18181b; border-color: #3f3f46; color: #f8fafc; }
+            .dark .page-item.active .page-link { background-color: #3f3f46; border-color: #52525b; }
+
+            .dark .alert-success { background-color: rgba(16,185,129,0.1); color: #34d399; border: 1px solid rgba(16,185,129,0.2); }
+            .dark .alert-danger  { background-color: rgba(239,68,68,0.1);  color: #f87171; border: 1px solid rgba(239,68,68,0.2);  }
+
             .dark .btn-close { filter: invert(1) grayscale(100%) brightness(200%); }
             .dark #theme-toggle { background-color: #27272a; color: #f8fafc; border-color: #52525b; }
             .dark #theme-toggle i { color: #f8fafc !important; }
-            
+
             body { transition: background-color 0.3s ease, color 0.3s ease; }
         </style>
+
     </head>
     <body class="font-sans antialiased bg-light dark:bg-[#09090b] text-slate-900 dark:text-slate-100">
         <div class="min-h-screen">
