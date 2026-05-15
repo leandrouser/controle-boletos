@@ -455,85 +455,64 @@ let codeReader = null;
 let streamAtivo = null;
 let leituraRealizada = false;
 
-    async function abrirCamera() {
-        leituraRealizada = false;
-        const modal = new bootstrap.Modal(document.getElementById('modal-camera'));
-        modal.show();
-
-        try {
-            const hints = new Map();
-            hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, [
-                ZXing.BarcodeFormat.ITF,
-                ZXing.BarcodeFormat.CODE_128,
-                ZXing.BarcodeFormat.CODE_39,
-            ]);
-            hints.set(ZXing.DecodeHintType.TRY_HARDER, true);
-
-            codeReader = new ZXing.BrowserMultiFormatReader(hints);
-
-            const devices = await codeReader.listVideoInputDevices();
-            const cameraTraseira = devices.find(d => /back|rear|environment/i.test(d.label)) || devices[devices.length - 1];
-            const deviceId = cameraTraseira?.deviceId || undefined;
-
-            async function abrirCamera() {
+async function abrirCamera() {
     leituraRealizada = false;
     const modal = new bootstrap.Modal(document.getElementById('modal-camera'));
     modal.show();
 
-        try {
-            const hints = new Map();
-            hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, [
-                ZXing.BarcodeFormat.ITF,
-                ZXing.BarcodeFormat.CODE_128,
-            ]);
-            hints.set(ZXing.DecodeHintType.TRY_HARDER, true);
+    try {
+        const hints = new Map();
+        hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, [
+            ZXing.BarcodeFormat.ITF,
+            ZXing.BarcodeFormat.CODE_128,
+        ]);
+        hints.set(ZXing.DecodeHintType.TRY_HARDER, true);
 
-            codeReader = new ZXing.BrowserMultiFormatReader(hints);
+        codeReader = new ZXing.BrowserMultiFormatReader(hints);
 
-            const stream = await navigator.mediaDevices.getUserMedia({
-                video: {
-                    facingMode: { exact: 'environment' },
-                    width: { ideal: 1280 },
-                    height: { ideal: 720 },
-                    focusMode: { ideal: 'continuous' },
-                    zoom: 1,
-                }
-            });
-
-            streamAtivo = stream;
-            const video = document.getElementById('camera-video');
-            video.srcObject = stream;
-            await video.play();
-
-            const track = stream.getVideoTracks()[0];
-            if (track && typeof track.applyConstraints === 'function') {
-                try {
-                    await track.applyConstraints({
-                        advanced: [{ focusMode: 'continuous' }]
-                    });
-                } catch (_) {}
+        const stream = await navigator.mediaDevices.getUserMedia({
+            video: {
+                facingMode: { exact: 'environment' },
+                width: { ideal: 1280 },
+                height: { ideal: 720 },
             }
+        });
 
-            await codeReader.decodeFromStream(stream, video, (result, err) => {
-                if (result && !leituraRealizada) {
-                    const codigo = result.getText().replace(/[^0-9]/g, '');
-                    if (codigo.length >= 44) {
-                        leituraRealizada = true;
-                        document.getElementById('codigo_barras').value = result.getText();
-                        decifrarBoleto(result.getText());
-                        setTimeout(() => fecharCamera(), 100);
-                        document.getElementById('codigo_barras').classList.add('is-valid');
-                        setTimeout(() => document.getElementById('codigo_barras').classList.remove('is-valid'), 3000);
-                    }
-                }
-            });
+        streamAtivo = stream;
+        const video = document.getElementById('camera-video');
+        video.srcObject = stream;
+        await video.play();
 
-        } catch (e) {
-            document.getElementById('camera-status').innerHTML =
-                '<i class="fas fa-exclamation-triangle me-1"></i> Câmera não permitida ou não disponível.';
-            console.error(e);
+        const track = stream.getVideoTracks()[0];
+        if (track && typeof track.applyConstraints === 'function') {
+            try {
+                await track.applyConstraints({
+                    advanced: [{ focusMode: 'continuous' }]
+                });
+            } catch (_) {}
         }
+
+        await codeReader.decodeFromStream(stream, video, (result, err) => {
+            if (result && !leituraRealizada) {
+                const codigo = result.getText().replace(/[^0-9]/g, '');
+                if (codigo.length >= 44) {
+                    leituraRealizada = true;
+                    document.getElementById('codigo_barras').value = result.getText();
+                    decifrarBoleto(result.getText());
+                    setTimeout(() => fecharCamera(), 100);
+                    document.getElementById('codigo_barras').classList.add('is-valid');
+                    setTimeout(() => document.getElementById('codigo_barras').classList.remove('is-valid'), 3000);
+                }
+            }
+        });
+
+    } catch (e) {
+        alert('Erro: ' + e.message);
+        document.getElementById('camera-status').innerHTML =
+            '<i class="fas fa-exclamation-triangle me-1"></i> Câmera não permitida ou não disponível.';
+        console.error(e);
     }
+}
 
 function fecharCamera() {
     if (codeReader) {
@@ -549,7 +528,6 @@ function fecharCamera() {
     if (modal) modal.hide();
 }
 
-// Fecha câmera se o modal for fechado pelo backdrop ou ESC
 document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('modal-camera').addEventListener('hide.bs.modal', fecharCamera);
 });
