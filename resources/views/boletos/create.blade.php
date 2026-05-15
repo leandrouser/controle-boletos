@@ -475,7 +475,46 @@ let leituraRealizada = false;
             const cameraTraseira = devices.find(d => /back|rear|environment/i.test(d.label)) || devices[devices.length - 1];
             const deviceId = cameraTraseira?.deviceId || undefined;
 
-            await codeReader.decodeFromVideoDevice(deviceId, 'camera-video', (result, err) => {
+            async function abrirCamera() {
+    leituraRealizada = false;
+    const modal = new bootstrap.Modal(document.getElementById('modal-camera'));
+    modal.show();
+
+        try {
+            const hints = new Map();
+            hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, [
+                ZXing.BarcodeFormat.ITF,
+                ZXing.BarcodeFormat.CODE_128,
+            ]);
+            hints.set(ZXing.DecodeHintType.TRY_HARDER, true);
+
+            codeReader = new ZXing.BrowserMultiFormatReader(hints);
+
+            const stream = await navigator.mediaDevices.getUserMedia({
+                video: {
+                    facingMode: { exact: 'environment' },
+                    width: { ideal: 1280 },
+                    height: { ideal: 720 },
+                    focusMode: { ideal: 'continuous' },
+                    zoom: 1,
+                }
+            });
+
+            streamAtivo = stream;
+            const video = document.getElementById('camera-video');
+            video.srcObject = stream;
+            await video.play();
+
+            const track = stream.getVideoTracks()[0];
+            if (track && typeof track.applyConstraints === 'function') {
+                try {
+                    await track.applyConstraints({
+                        advanced: [{ focusMode: 'continuous' }]
+                    });
+                } catch (_) {}
+            }
+
+            await codeReader.decodeFromStream(stream, video, (result, err) => {
                 if (result && !leituraRealizada) {
                     const codigo = result.getText().replace(/[^0-9]/g, '');
                     if (codigo.length >= 44) {
@@ -488,9 +527,6 @@ let leituraRealizada = false;
                     }
                 }
             });
-
-            const video = document.getElementById('camera-video');
-            video.addEventListener('playing', () => { streamAtivo = video.srcObject; }, { once: true });
 
         } catch (e) {
             document.getElementById('camera-status').innerHTML =
