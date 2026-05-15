@@ -29,6 +29,8 @@
                 min-width: 140px;
             }
 
+            .dark .table tbody td { color: #e2e8f0 !important; }
+            .dark .table td, .dark .table th { border-color: #3f3f46 !important;}
             .dark body { background-color: #09090b !important; color: #f8fafc !important; }
             .dark .bg-light { background-color: #18181b !important; }
             .dark .bg-white { background-color: #111113 !important; color: #f8fafc !important; }
