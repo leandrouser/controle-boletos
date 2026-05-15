@@ -29,6 +29,9 @@
                             <span class="input-group-text bg-white" id="spinner-beneficiario" style="display:none;">
                                 <span class="spinner-border spinner-border-sm text-primary" role="status"></span>
                             </span>
+                            <button type="button" class="btn btn-outline-primary" id="btn-camera" onclick="abrirCamera()" title="Ler código de barras pela câmera">
+                                <i class="fas fa-camera"></i>
+                            </button>
                         </div>
                         <div id="badge-tipo-boleto" class="mt-2" style="display:none;">
                             <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle px-2 py-1 small">
@@ -220,13 +223,13 @@ function extrairDados(linha) {
             vencimento = base.toISOString().split('T')[0];
         }
         const cl   = linha.substring(4, 9) + linha.substring(11, 21) + linha.substring(22, 32);
-        conta      = linha.substring(0, 3) + cl.substring(0, 19); // 22d
+        conta      = linha.substring(0, 3) + cl.substring(0, 19);
         assinatura = linha.substring(0, 3) + cl.substring(0, 18);
     }
     else if (t === 44) {
         if (linha.startsWith('8')) {
             valor  = parseFloat(linha.substring(5, 15)) / 100;
-            conta  = linha.substring(0, 2) + linha.substring(15, 35); // 22d
+            conta  = linha.substring(0, 2) + linha.substring(15, 35);
         } else {
             valor  = parseFloat(linha.substring(34, 44)) / 100;
             const fator = parseInt(linha.substring(30, 34));
@@ -235,7 +238,7 @@ function extrairDados(linha) {
                 base.setDate(base.getDate() + fator);
                 vencimento = base.toISOString().split('T')[0];
             }
-            conta = linha.substring(0, 3) + linha.substring(4, 23); // 22d
+            conta = linha.substring(0, 3) + linha.substring(4, 23);
         }
         assinatura = conta;
     }
@@ -243,7 +246,6 @@ function extrairDados(linha) {
     return { valor, vencimento, conta, assinatura };
 }
 
-// ─── Função principal ─────────────────────────────────────────────────────────
 let debounceTimer = null;
 
 function decifrarBoleto(codigo) {
@@ -425,6 +427,86 @@ document.addEventListener('DOMContentLoaded', function () {
         el.addEventListener('change', atualizarInfoParcelas);
     }
     });
+});
+</script>
+
+<div class="modal fade" id="modal-camera" tabindex="-1" data-bs-backdrop="static">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title"><i class="fas fa-camera me-2"></i> Apontar para o código de barras</h5>
+                <button type="button" class="btn-close btn-close-white" onclick="fecharCamera()"></button>
+            </div>
+            <div class="modal-body p-0 position-relative" style="background:#000;">
+                <video id="camera-video" style="width:100%;display:block;max-height:60vh;object-fit:cover;" playsinline autoplay muted></video>
+                {{-- Linha guia --}}
+                <div style="position:absolute;top:50%;left:10%;width:80%;height:2px;background:rgba(255,80,80,0.8);transform:translateY(-50%);box-shadow:0 0 8px red;"></div>
+                <div id="camera-status" class="text-center text-white py-2 small" style="background:rgba(0,0,0,0.5);">
+                    <i class="fas fa-search me-1"></i> Centralize o código de barras na linha vermelha...
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://unpkg.com/@zxing/library@0.19.1/umd/index.min.js"></script>
+<script>
+let codeReader = null;
+let streamAtivo = null;
+let leituraRealizada = false;
+
+async function abrirCamera() {
+    leituraRealizada = false;
+    const modal = new bootstrap.Modal(document.getElementById('modal-camera'));
+    modal.show();
+
+    try {
+        codeReader = new ZXing.BrowserMultiFormatReader();
+        const devices = await codeReader.listVideoInputDevices();
+        const cameraTraseira = devices.find(d => /back|rear|environment/i.test(d.label)) || devices[devices.length - 1];
+        const deviceId = cameraTraseira?.deviceId || undefined;
+
+        await codeReader.decodeFromVideoDevice(deviceId, 'camera-video', (result, err) => {
+            if (result && !leituraRealizada) {
+                const codigo = result.getText().replace(/[^0-9]/g, '');
+                if (codigo.length >= 44) {
+                    leituraRealizada = true;
+                    document.getElementById('codigo_barras').value = result.getText();
+                    decifrarBoleto(result.getText());
+                    setTimeout(() => fecharCamera(), 100);
+                    document.getElementById('codigo_barras').classList.add('is-valid');
+                    setTimeout(() => document.getElementById('codigo_barras').classList.remove('is-valid'), 3000);
+                }
+            }
+        });
+
+        const video = document.getElementById('camera-video');
+        video.addEventListener('playing', () => { streamAtivo = video.srcObject; }, { once: true });
+
+    } catch (e) {
+        document.getElementById('camera-status').innerHTML =
+            '<i class="fas fa-exclamation-triangle me-1"></i> Câmera não permitida ou não disponível.';
+        console.error(e);
+    }
+}
+
+function fecharCamera() {
+    if (codeReader) {
+        codeReader.reset();
+        codeReader = null;
+    }
+    if (streamAtivo) {
+        streamAtivo.getTracks().forEach(t => t.stop());
+        streamAtivo = null;
+    }
+    const modalEl = document.getElementById('modal-camera');
+    const modal = bootstrap.Modal.getInstance(modalEl);
+    if (modal) modal.hide();
+}
+
+// Fecha câmera se o modal for fechado pelo backdrop ou ESC
+document.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('modal-camera').addEventListener('hide.bs.modal', fecharCamera);
 });
 </script>
 @endsection

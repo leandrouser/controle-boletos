@@ -9,9 +9,6 @@ use Carbon\Carbon;
 
 class BoletoController extends Controller
 {
-    // -------------------------------------------------------------------------
-    // HELPERS
-    // -------------------------------------------------------------------------
 
     private function parseBrValue(string $valor): float
     {
