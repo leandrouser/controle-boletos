@@ -108,90 +108,79 @@
                 @endif
             </div>
 
-            <div class="card-body p-0">
-                <div class="table-responsive">
-                    <table class="table table-hover align-middle mb-0">
-                        <thead class="bg-light text-muted small text-uppercase">
-                            <tr>
-                                <th class="border-0 ps-4 py-3" style="width:40px;">
-                                    @if($status == 'pendente')
-                                        <input type="checkbox" id="select-all" class="form-check-input">
+            <div class="table-responsive">
+                {{-- Adicionei text-nowrap para evitar que o texto quebre e force o scroll lateral limpo --}}
+                <table class="table table-hover align-middle mb-0 text-nowrap">
+                    <thead class="bg-light text-muted small text-uppercase">
+                        <tr>
+                            <th class="border-0 ps-4 py-3" style="width:40px;">
+                                @if($status == 'pendente')
+                                    <input type="checkbox" id="select-all" class="form-check-input">
+                                @endif
+                            </th>
+                            <th class="border-0 py-3">Beneficiário</th>
+                            <th class="border-0 py-3">Valor</th>
+                            <th class="border-0 py-3">Vencimento</th>
+                            <th class="border-0 py-3">Status</th>
+                            <th class="border-0 pe-4 py-3 text-center">Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @forelse($boletos as $boleto)
+                            @php $isVencido = $boleto->data_vencimento < $hoje && $boleto->status == 'pendente'; @endphp
+                            <tr class="{{ $isVencido ? 'bg-danger-subtle' : '' }}">
+                                <td class="ps-4">
+                                    @if($boleto->status == 'pendente')
+                                        <input type="checkbox" name="ids[]"
+                                            value="{{ $boleto->id }}"
+                                            data-valor="{{ $boleto->valor }}"
+                                            class="form-check-input boleto-checkbox">
+                                    @else
+                                        <i class="fas fa-check-circle text-success opacity-50"></i>
                                     @endif
-                                </th>
-                                <th class="border-0 py-3">Beneficiario</th>
-                                <th class="border-0 py-3">Valor</th>
-                                <th class="border-0 py-3">Vencimento</th>
-                                <th class="border-0 py-3">Status</th>
-                                <th class="border-0 pe-4 py-3 text-center">Acoes</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @forelse($boletos as $boleto)
-                                @php $isVencido = $boleto->data_vencimento < $hoje && $boleto->status == 'pendente'; @endphp
-                                <tr class="{{ $isVencido ? 'bg-danger-subtle' : '' }}">
-                                    <td class="ps-4">
+                                </td>
+                                <td class="fw-bold">{{ $boleto->beneficiario }}</td>
+                                <td class="fw-bold text-primary">R$ {{ number_format($boleto->valor, 2, ',', '.') }}</td>
+                                <td>
+                                    <span class="{{ $isVencido ? 'text-danger fw-bold' : '' }}">
+                                        <i class="far fa-calendar-alt me-1"></i>
+                                        {{ date('d/m/Y', strtotime($boleto->data_vencimento)) }}
+                                    </span>
+                                </td>
+                                <td>
+                                    {{-- Badges responsivos --}}
+                                    @if($boleto->status == 'pago')
+                                        <span class="badge rounded-pill bg-success-subtle text-success px-3">Pago</span>
+                                    @elseif($isVencido)
+                                        <span class="badge rounded-pill bg-danger-subtle text-danger px-3">Vencido</span>
+                                    @else
+                                        <span class="badge rounded-pill bg-warning-subtle text-warning px-3">Pendente</span>
+                                    @endif
+                                </td>
+                                <td class="pe-4 text-center">
+                                    <div class="btn-group shadow-sm">
                                         @if($boleto->status == 'pendente')
-                                            <input type="checkbox" name="ids[]"
-                                                value="{{ $boleto->id }}"
-                                                data-valor="{{ $boleto->valor }}"
-                                                class="form-check-input boleto-checkbox">
-                                        @else
-                                            <i class="fas fa-check-circle text-success opacity-50"></i>
-                                        @endif
-                                    </td>
-                                    <td class="fw-bold">{{ $boleto->beneficiario }}</td>
-                                    <td class="fw-bold text-primary">R$ {{ number_format($boleto->valor, 2, ',', '.') }}</td>
-                                    <td>
-                                        <span class="{{ $isVencido ? 'text-danger fw-bold' : '' }}">
-                                            <i class="far fa-calendar-alt me-1"></i>
-                                            {{ date('d/m/Y', strtotime($boleto->data_vencimento)) }}
-                                        </span>
-                                    </td>
-                                    <td>
-                                        @if($boleto->status == 'pago')
-                                            <span class="badge rounded-pill bg-success-subtle text-success px-3">
-                                                Pago em {{ date('d/m/y', strtotime($boleto->data_pagamento)) }}
-                                            </span>
-                                        @elseif($isVencido)
-                                            <span class="badge rounded-pill bg-danger-subtle text-danger px-3">Vencido</span>
-                                        @else
-                                            <span class="badge rounded-pill bg-warning-subtle text-warning px-3">Pendente</span>
-                                        @endif
-                                    </td>
-                                    <td class="pe-4 text-center">
-                                        <div class="btn-group shadow-sm">
-                                            @if($boleto->status == 'pendente')
-                                                <button type="button"
-                                                    class="btn btn-sm btn-success no-loading"
-                                                    onclick="pagarBoleto({{ $boleto->id }}, '{{ addslashes($boleto->beneficiario) }}')">
-                                                    <i class="fas fa-check"></i>
-                                                </button>
-                                            @endif
-                                            <a href="{{ route('boletos.show', $boleto->id) }}"
-                                                class="btn btn-white btn-sm text-dark border-end">
-                                                <i class="fas fa-barcode"></i>
-                                            </a>
-                                            <a href="{{ route('boletos.edit', $boleto->id) }}"
-                                                class="btn btn-white btn-sm text-primary border-end">
-                                                <i class="fas fa-edit"></i>
-                                            </a>
-                                            <button type="button"
-                                                class="btn btn-white btn-sm text-danger no-loading"
-                                                onclick="excluirBoleto({{ $boleto->id }})">
-                                                <i class="fas fa-trash-alt"></i>
+                                            <button type="button" class="btn btn-sm btn-success" onclick="pagarBoleto({{ $boleto->id }}, '{{ addslashes($boleto->beneficiario) }}')">
+                                                <i class="fas fa-check"></i>
                                             </button>
-                                        </div>
-                                    </td>
-                                </tr>
-                            @empty
-                                <tr>
-                                    <td colspan="6" class="text-center py-5 text-muted">Nenhum registro encontrado.</td>
-                                </tr>
-                            @endforelse
-                        </tbody>
-                    </table>
-                </div>
+                                        @endif
+                                        <a href="{{ route('boletos.show', $boleto->id) }}" class="btn btn-white btn-sm border-end"><i class="fas fa-barcode"></i></a>
+                                        <a href="{{ route('boletos.edit', $boleto->id) }}" class="btn btn-white btn-sm text-primary border-end"><i class="fas fa-edit"></i></a>
+                                        <button type="button" class="btn btn-white btn-sm text-danger" onclick="excluirBoleto({{ $boleto->id }})">
+                                            <i class="fas fa-trash-alt"></i>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                        @empty
+                            <tr>
+                                <td colspan="6" class="text-center py-5 text-muted">Nenhum registro encontrado.</td>
+                            </tr>
+                        @endforelse
+                    </tbody>
+                </table>
             </div>
+            
 
             <div class="card-footer bg-white py-3 border-top">
                 <div class="d-flex justify-content-between align-items-center">

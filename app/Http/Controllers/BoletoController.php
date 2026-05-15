@@ -138,13 +138,12 @@ class BoletoController extends Controller
         }
 
         if (!empty($contaOrigem) && !empty($nomeBeneficiario)) {
-            BeneficiarioIdentificado::updateOrInsert(
-                ['conta_origem' => $contaOrigem],
+            $assinaturaFinal = $assinatura ?? $contaOrigem;
+            BeneficiarioIdentificado::updateOrCreate(
+                ['assinatura' => $assinaturaFinal],
                 [
-                    'assinatura'    => $assinatura ?? $contaOrigem,
+                    'conta_origem'  => $contaOrigem,
                     'nome_sugerido' => $nomeBeneficiario,
-                    'updated_at'    => now(),
-                    'created_at'    => now(),
                 ]
             );
         }
