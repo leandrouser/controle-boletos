@@ -51,7 +51,9 @@
             .dark .alert-success { background-color: rgba(16, 185, 129, 0.1); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.2); }
             .dark .alert-danger { background-color: rgba(239, 68, 68, 0.1); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.2); }
             .dark .btn-close { filter: invert(1) grayscale(100%) brightness(200%); }
-
+            .dark #theme-toggle { background-color: #27272a; color: #f8fafc; border-color: #52525b; }
+            .dark #theme-toggle i { color: #f8fafc !important; }
+            
             body { transition: background-color 0.3s ease, color 0.3s ease; }
         </style>
     </head>

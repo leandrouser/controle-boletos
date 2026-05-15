@@ -9,7 +9,7 @@
             <p class="text-muted">Gerencie seus boletos e fluxos de pagamento.</p>
         </div>
         <div class="d-flex gap-2">
-            <button id="theme-toggle" class="btn btn-outline-secondary px-3 shadow-sm border-0 bg-white" title="Alternar Tema">
+            <button id="theme-toggle" class="btn btn-outline-secondary px-3 shadow-sm" title="Alternar Tema">
                 <i id="theme-toggle-icon" class="fas fa-moon"></i>
             </button>
             <a href="{{ route('boletos.create') }}" class="btn btn-primary px-4 shadow-sm fw-bold">
