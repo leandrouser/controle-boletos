@@ -123,9 +123,9 @@
                 <table class="table table-hover align-middle mb-0 text-nowrap">
                     <thead class="bg-light text-muted small text-uppercase">
                         <tr>
-                            <th class="border-0 ps-4 py-3" style="width:40px;">
-                                @if($status == 'pendente')
-                                    <input type="checkbox" id="select-all" class="form-check-input">
+                            <th class="border-0 ps-4 py-3" style="width:40px; vertical-align:middle;">
+                                @if($status == 'pendente' || $status == 'vence_hoje')
+                                    <input type="checkbox" id="select-all" class="form-check-input" style="display:block; margin:0 auto;">
                                 @endif
                             </th>
                             <th class="border-0 py-3">Beneficiário</th>
@@ -142,12 +142,14 @@
                                 $isVenceHoje    = $dataVencimento->isToday() && $boleto->status == 'pendente';
                                 $isVencido      = $dataVencimento->lt($hoje) && !$isVenceHoje && $boleto->status == 'pendente';
                             @endphp
-                                <tr class="{{ $isVencido ? 'bg-danger-subtle' : ($isVenceHoje ? 'bg-warning-subtle' : '') }}">
+                            <tr class="{{ $isVencido ? 'bg-danger-subtle' : ($isVenceHoje ? 'bg-warning-subtle' : '') }}">
+                                <td class="ps-4" style="width:40px; vertical-align:middle;">
                                     @if($boleto->status == 'pendente')
                                         <input type="checkbox" name="ids[]"
                                             value="{{ $boleto->id }}"
                                             data-valor="{{ $boleto->valor }}"
-                                            class="form-check-input boleto-checkbox">
+                                            class="form-check-input boleto-checkbox"
+                                            style="display:block; margin:0 auto;">
                                     @else
                                         <i class="fas fa-check-circle text-success opacity-50"></i>
                                     @endif
