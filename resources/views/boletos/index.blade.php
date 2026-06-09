@@ -65,14 +65,25 @@
             <form action="{{ route('dashboard') }}" method="GET" class="row g-2 align-items-end">
                 <div class="col-md-2">
                     <label class="form-label fw-bold small text-muted">Beneficiario</label>
-                    <input type="text" name="beneficiario" class="form-control form-control-sm"
-                        value="{{ request('beneficiario') }}" placeholder="Empresa...">
+                    <div style="position: relative;">
+                        <input type="text" name="beneficiario" id="filtro-beneficiario"
+                            class="form-control form-control-sm"
+                            value="{{ request('beneficiario') }}" placeholder="Empresa...">
+                        <ul id="autocomplete-list" style="
+                            display: none; position: absolute; z-index: 1000;
+                            background: white; border: 1px solid #ccc; width: 100%;
+                            max-height: 200px; overflow-y: auto; list-style: none;
+                            margin: 0; padding: 0; border-radius: 0 0 4px 4px;
+                            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+                        "></ul>
+                    </div>
                 </div>
                 <div class="col-md-2">
                     <label class="form-label fw-bold small text-muted">Status</label>
                     <select name="status" class="form-select form-select-sm">
-                        <option value="pendente" {{ request('status','pendente') == 'pendente' ? 'selected' : '' }}>Pendentes</option>
-                        <option value="pago"     {{ request('status') == 'pago' ? 'selected' : '' }}>Pagos</option>
+                        <option value="pendente"   {{ request('status','pendente') == 'pendente'   ? 'selected' : '' }}>Pendentes</option>
+                        <option value="vence_hoje" {{ request('status') == 'vence_hoje'            ? 'selected' : '' }}>Vence Hoje</option>
+                        <option value="pago"       {{ request('status') == 'pago'                  ? 'selected' : '' }}>Pagos</option>
                     </select>
                 </div>
                 <div class="col-md-2">
@@ -109,7 +120,6 @@
             </div>
 
             <div class="table-responsive">
-                {{-- Adicionei text-nowrap para evitar que o texto quebre e force o scroll lateral limpo --}}
                 <table class="table table-hover align-middle mb-0 text-nowrap">
                     <thead class="bg-light text-muted small text-uppercase">
                         <tr>
@@ -127,9 +137,12 @@
                     </thead>
                     <tbody>
                         @forelse($boletos as $boleto)
-                            @php $isVencido = $boleto->data_vencimento < $hoje && $boleto->status == 'pendente'; @endphp
-                            <tr class="{{ $isVencido ? 'bg-danger-subtle' : '' }}">
-                                <td class="ps-4">
+                            @php
+                                $dataVencimento = \Carbon\Carbon::parse($boleto->data_vencimento)->startOfDay();
+                                $isVenceHoje    = $dataVencimento->isToday() && $boleto->status == 'pendente';
+                                $isVencido      = $dataVencimento->lt($hoje) && !$isVenceHoje && $boleto->status == 'pendente';
+                            @endphp
+                                <tr class="{{ $isVencido ? 'bg-danger-subtle' : ($isVenceHoje ? 'bg-warning-subtle' : '') }}">
                                     @if($boleto->status == 'pendente')
                                         <input type="checkbox" name="ids[]"
                                             value="{{ $boleto->id }}"
@@ -142,19 +155,20 @@
                                 <td class="fw-bold">{{ $boleto->beneficiario }}</td>
                                 <td class="fw-bold text-primary">R$ {{ number_format($boleto->valor, 2, ',', '.') }}</td>
                                 <td>
-                                    <span class="{{ $isVencido ? 'text-danger fw-bold' : '' }}">
+                                    <span class="{{ $isVencido ? 'text-danger fw-bold' : ($isVenceHoje ? 'text-warning fw-bold' : '') }}">
                                         <i class="far fa-calendar-alt me-1"></i>
                                         {{ date('d/m/Y', strtotime($boleto->data_vencimento)) }}
                                     </span>
                                 </td>
                                 <td>
-                                    {{-- Badges responsivos --}}
                                     @if($boleto->status == 'pago')
                                         <span class="badge rounded-pill bg-success-subtle text-success px-3">Pago</span>
+                                    @elseif($isVenceHoje)
+                                        <span class="badge rounded-pill bg-warning-subtle text-warning px-3 border border-warning">⚡ Vence Hoje</span>
                                     @elseif($isVencido)
                                         <span class="badge rounded-pill bg-danger-subtle text-danger px-3">Vencido</span>
                                     @else
-                                        <span class="badge rounded-pill bg-warning-subtle text-warning px-3">Pendente</span>
+                                        <span class="badge rounded-pill bg-success-subtle text-success px-3">Pendente</span>
                                     @endif
                                 </td>
                                 <td class="pe-4 text-center">
@@ -177,10 +191,18 @@
                                 <td colspan="6" class="text-center py-5 text-muted">Nenhum registro encontrado.</td>
                             </tr>
                         @endforelse
+                        @php
+                            $dataVencimento = \Carbon\Carbon::parse($boleto->data_vencimento)->startOfDay();
+                        @endphp
+                        <pre>
+                            hoje:        {{ $hoje }}
+                            vencimento:  {{ $dataVencimento }}
+                            isToday:     {{ $dataVencimento->isToday() ? 'SIM' : 'NÃO' }}
+                            lt hoje:     {{ $dataVencimento->lt($hoje) ? 'SIM' : 'NÃO' }}
+                        </pre>
                     </tbody>
                 </table>
             </div>
-            
 
             <div class="card-footer bg-white py-3 border-top">
                 <div class="d-flex justify-content-between align-items-center">
@@ -194,7 +216,7 @@
     </div>
 </div>
 
-{{-- ── Formularios fora da tabela (evita bug do browser com form dentro de tbody) --}}
+{{-- Formularios fora da tabela --}}
 @foreach($boletos as $boleto)
     @if($boleto->status == 'pendente')
         <form id="form-pagar-{{ $boleto->id }}"
@@ -212,7 +234,7 @@
     </form>
 @endforeach
 
-{{-- ── Barra sticky de selecao --}}
+{{-- Barra sticky de selecao --}}
 <div id="sticky-bar" class="d-none"
     style="position:fixed;bottom:0;left:0;right:0;z-index:1050;background:#1e293b;color:#fff;padding:14px 24px;box-shadow:0 -4px 20px rgba(0,0,0,0.25);">
     <div class="container-fluid d-flex align-items-center justify-content-between flex-wrap gap-3">
@@ -237,7 +259,6 @@
 </div>
 
 <script>
-    // ── Tema ──────────────────────────────────────────────────────────────────
     const themeToggleBtn  = document.getElementById('theme-toggle');
     const themeToggleIcon = document.getElementById('theme-toggle-icon');
 
@@ -256,7 +277,6 @@
         }
     });
 
-    // ── Card resumo rotativo ──────────────────────────────────────────────────
     const cardResumo = document.getElementById('card-resumo');
     const dados = [
         { titulo: "Total Hoje",   valor: "R$ {{ number_format($totalDia,    2, ',', '.') }}", qtd: "{{ $qtdDia }} {{ $qtdDia == 1 ? 'boleto' : 'boletos' }}",       legenda: "vencendo hoje + atrasados",  classe: "bg-dark"    },
@@ -280,21 +300,18 @@
         });
     }
 
-    // ── Pagar boleto individual ───────────────────────────────────────────────
     function pagarBoleto(id, nome) {
         if (confirm('Confirmar pagamento de ' + nome + '?')) {
             document.getElementById('form-pagar-' + id).submit();
         }
     }
 
-    // ── Excluir boleto ────────────────────────────────────────────────────────
     function excluirBoleto(id) {
         if (confirm('Excluir este boleto?')) {
             document.getElementById('form-excluir-' + id).submit();
         }
     }
 
-    // ── Checkboxes + barra sticky ─────────────────────────────────────────────
     const selectAll   = document.getElementById('select-all');
     const checkboxes  = document.querySelectorAll('.boleto-checkbox');
     const btnLote     = document.getElementById('btn-pagar-lote');
@@ -347,5 +364,19 @@
         });
     }
     checkboxes.forEach(cb => cb.addEventListener('change', atualizarSelecao));
+
+    // Busca dinâmica por beneficiário
+    let debounce;
+    document.getElementById('filtro-beneficiario')?.addEventListener('input', function () {
+        clearTimeout(debounce);
+        debounce = setTimeout(() => {
+            this.closest('form').submit();
+        }, 500);
+    });
+
+    // Submit automático ao trocar status
+    document.querySelector('select[name="status"]')?.addEventListener('change', function () {
+        this.closest('form').submit();
+    });
 </script>
 @endsection

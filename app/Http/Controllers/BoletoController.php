@@ -104,7 +104,7 @@ class BoletoController extends Controller
             $assinatura = $contaOrigem;
         }
 
-            $isParcelado = $request->has('repete_boleto') && $request->has('vencimentos_parcelas');
+        $isParcelado = $request->has('repete_boleto') && $request->has('vencimentos_parcelas');
         if ($isParcelado) {
             $vencimentos = $request->input('vencimentos_parcelas');
             $valores     = $request->input('valores_parcelas');
@@ -150,11 +150,10 @@ class BoletoController extends Controller
             : "Boleto de {$nomeBeneficiario} cadastrado com sucesso!";
 
         return redirect()->back()->with('success', $mensagem);
+    }
 
-        }
-
-        public function verificarDuplicado(Request $request)
-        {
+    public function verificarDuplicado(Request $request)
+    {
         $codigo = preg_replace('/[^0-9]/', '', $request->query('codigo'));
         $boleto = Boleto::where('codigo_barras', $codigo)->first();
 
@@ -193,7 +192,13 @@ class BoletoController extends Controller
     {
         $query  = Boleto::query();
         $status = $request->get('status', 'pendente');
-        $query->where('status', $status);
+
+        if ($status === 'vence_hoje') {
+            $query->where('status', 'pendente')
+                  ->whereDate('data_vencimento', Carbon::today());
+        } else {
+            $query->where('status', $status);
+        }
 
         if ($request->filled('beneficiario')) {
             $query->where('beneficiario', 'like', '%' . $request->beneficiario . '%');
@@ -344,5 +349,19 @@ class BoletoController extends Controller
             'aviso'    => $aviso,
             'codigo44' => $codigo44,
         ]);
+    }
+
+    public function buscarBeneficiarios(Request $request)
+    {
+        $termo = $request->query('q', '');
+
+        $resultados = BeneficiarioIdentificado::where('nome_sugerido', 'like', '%' . $termo . '%')
+            ->orderBy('nome_sugerido')
+            ->limit(10)
+            ->pluck('nome_sugerido')
+            ->unique()
+            ->values();
+
+        return response()->json($resultados);
     }
 }
