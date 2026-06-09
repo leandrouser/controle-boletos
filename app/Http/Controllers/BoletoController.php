@@ -201,7 +201,7 @@ class BoletoController extends Controller
         }
 
         if ($request->filled('beneficiario')) {
-            $query->where('beneficiario', 'like', '%' . $request->beneficiario . '%');
+            $query->whereRaw('LOWER(beneficiario) LIKE ?', ['%' . strtolower($request->beneficiario) . '%']);
         }
 
         if ($request->filled('data_inicio') && $request->filled('data_fim')) {
