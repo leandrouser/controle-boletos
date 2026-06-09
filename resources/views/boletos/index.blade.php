@@ -191,15 +191,6 @@
                                 <td colspan="6" class="text-center py-5 text-muted">Nenhum registro encontrado.</td>
                             </tr>
                         @endforelse
-                        @php
-                            $dataVencimento = \Carbon\Carbon::parse($boleto->data_vencimento)->startOfDay();
-                        @endphp
-                        <pre>
-                            hoje:        {{ $hoje }}
-                            vencimento:  {{ $dataVencimento }}
-                            isToday:     {{ $dataVencimento->isToday() ? 'SIM' : 'NÃO' }}
-                            lt hoje:     {{ $dataVencimento->lt($hoje) ? 'SIM' : 'NÃO' }}
-                        </pre>
                     </tbody>
                 </table>
             </div>
