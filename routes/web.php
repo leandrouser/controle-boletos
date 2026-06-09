@@ -15,6 +15,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/boletos/novo', [BoletoController::class, 'create'])->name('boletos.create');
     Route::post('/boletos/pagar-lote', [BoletoController::class, 'pagarLote'])->name('boletos.pagarLote');
     Route::get('/boletos/relatorio', [BoletoController::class, 'gerarPdf'])->name('boletos.pdf');
+    Route::get('/boletos/beneficiarios/buscar', [BoletoController::class, 'buscarBeneficiarios'])->name('boletos.beneficiarios.buscar');
 
     Route::post('/boletos', [BoletoController::class, 'store'])->name('boletos.store');
 
