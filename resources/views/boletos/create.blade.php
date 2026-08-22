@@ -51,12 +51,25 @@
                     <hr class="text-muted mb-4">
 
                     <div class="row">
-                        <div class="col-12 mb-3">
+                        <div class="col-md-8 mb-3">
                             <label class="form-label fw-bold">Beneficiário / Empresa</label>
                             <div class="input-group">
                                 <span class="input-group-text bg-white"><i class="fas fa-building text-muted"></i></span>
                                 <input type="text" name="beneficiario" id="beneficiario" class="form-control"
                                     placeholder="Ex: Copel, Aluguel..." required>
+                            </div>
+                        </div>
+
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label fw-bold">Categoria</label>
+                            <div class="input-group">
+                                <span class="input-group-text bg-white"><i class="fas fa-tags text-muted"></i></span>
+                                <select name="categoria" id="categoria" class="form-select">
+                                    <option value="">Selecione...</option>
+                                    @foreach($categorias as $valor => $label)
+                                        <option value="{{ $valor }}">{{ $label }}</option>
+                                    @endforeach
+                                </select>
                             </div>
                         </div>
 
@@ -73,7 +86,7 @@
                             <div class="input-group">
                                 <span class="input-group-text bg-white"><i class="fas fa-calendar-alt text-muted"></i></span>
                                 <input type="date" name="data_vencimento" id="data_vencimento"
-                                    class="form-control" required>
+                                    class="form-control" value="{{ date('Y-m-d') }}" required>
                             </div>
                         </div>
                     </div>
@@ -117,9 +130,11 @@
                                 <table class="table table-sm table-hover border">
                                     <thead class="table-light">
                                         <tr>
+                                            <th>Beneficiário</th>
                                             <th>Parcela</th>
                                             <th>Vencimento</th>
                                             <th>Valor</th>
+                                            <th>Código de Barras</th>
                                             <th class="text-center">Ações</th>
                                         </tr>
                                     </thead>
@@ -314,12 +329,60 @@ async function buscarBeneficiario(conta, assinatura) {
     }
 }
 
+// ─── Decifrar código de barras individual de uma parcela ────────────────────
+// O beneficiário permanece sempre o mesmo (do boleto principal). Aqui só
+// atualizamos valor e vencimento daquela parcela específica.
+let debounceParcelaTimers = new WeakMap();
+
+function decifrarParcela(inputEl) {
+    const codigo = inputEl.value;
+    if (!codigo) return;
+    const linha = codigo.replace(/[^0-9]/g, '');
+    if (linha.length < 10) return;
+
+    clearTimeout(debounceParcelaTimers.get(inputEl));
+    const timer = setTimeout(() => {
+        const { valor, vencimento } = extrairDados(linha);
+
+        const tr = inputEl.closest('tr');
+        if (!tr) return;
+
+        const inputData  = tr.querySelector('input[name="vencimentos_parcelas[]"]');
+        const inputValor = tr.querySelector('input[name="valores_parcelas[]"]');
+
+        if (vencimento && inputData) {
+            inputData.value = vencimento;
+        }
+
+        if (valor > 0 && inputValor) {
+            inputValor.value = floatToBr(valor);
+            inputValor.dispatchEvent(new Event('input'));
+        }
+
+        calcularTotalGeral();
+    }, 400);
+
+    debounceParcelaTimers.set(inputEl, timer);
+}
+
+// ─── Mantém a numeração "1/10, 2/10, 3/10..." sempre correta ────────────────
+function renumerarParcelas() {
+    const linhas = tabelaPrevia.querySelectorAll('tr');
+    const total  = linhas.length;
+    linhas.forEach((tr, idx) => {
+        const celula = tr.querySelector('td.numero-parcela');
+        if (celula) celula.textContent = `${idx + 1}/${total}`;
+    });
+}
+
 function atualizarInfoParcelas() {
     const v   = getValorFloat();
     const qtd = parseInt(inputParcelas.value) || 1;
     const int = parseInt(inputIntervalo.value) || 30;
     const dt  = inputDataVenc.value;
     const ehDataFixa = toggleDataFixa.checked;
+    const codigoBarrasAtual = document.getElementById('codigo_barras').value;
+    const beneficiarioAtual = document.getElementById('beneficiario').value;
 
     tabelaPrevia.innerHTML = '';
 
@@ -344,7 +407,8 @@ function atualizarInfoParcelas() {
             const dataFormatada = d.toISOString().split('T')[0];
 
             tabelaPrevia.innerHTML += `<tr>
-                <td class="align-middle text-nowrap">${i+1}ª Parcela</td>
+                <td class="align-middle text-nowrap beneficiario-parcela">${beneficiarioAtual}</td>
+                <td class="align-middle text-nowrap numero-parcela"></td>
                 <td><input type="date" class="form-control form-control-sm"
                     name="vencimentos_parcelas[]" value="${dataFormatada}"></td>
                 <td><div class="input-group input-group-sm">
@@ -352,13 +416,17 @@ function atualizarInfoParcelas() {
                     <input type="text" class="form-control form-control-sm parcela-valor"
                         name="valores_parcelas[]" value="${floatToBr(v)}">
                 </div></td>
+                <td><input type="text" class="form-control form-control-sm codigo-barras-parcela"
+                    name="codigos_barras_parcelas[]" value="${codigoBarrasAtual}"
+                    oninput="decifrarParcela(this)"></td>
                 <td class="text-center"><button type="button" class="btn btn-sm btn-link text-danger"
-                    onclick="this.closest('tr').remove();calcularTotalGeral()">
+                    onclick="this.closest('tr').remove();calcularTotalGeral();renumerarParcelas()">
                     <i class="fas fa-trash"></i></button></td>
             </tr>`;
         }
         aplicarMascarasTabela();
         calcularTotalGeral();
+        renumerarParcelas();
     } else {
         infoParcela.innerHTML = '';
     }
@@ -369,8 +437,12 @@ function adicionarParcelaManual() {
     const dts = tabelaPrevia.querySelectorAll('input[type="date"]');
     let dt = new Date();
     if (dts.length > 0) { dt = new Date(dts[dts.length-1].value+'T00:00:00'); dt.setDate(dt.getDate()+30); }
+    const codigoBarrasAtual = document.getElementById('codigo_barras').value;
+    const beneficiarioAtual = document.getElementById('beneficiario').value;
+
     tabelaPrevia.insertAdjacentHTML('beforeend', `<tr>
-        <td class="align-middle text-nowrap">${n+1}ª Parcela (Extra)</td>
+        <td class="align-middle text-nowrap beneficiario-parcela">${beneficiarioAtual}</td>
+        <td class="align-middle text-nowrap numero-parcela"></td>
         <td><input type="date" class="form-control form-control-sm"
             name="vencimentos_parcelas[]" value="${dt.toISOString().split('T')[0]}"></td>
         <td><div class="input-group input-group-sm">
@@ -378,11 +450,14 @@ function adicionarParcelaManual() {
             <input type="text" class="form-control form-control-sm parcela-valor"
                 name="valores_parcelas[]" value="${floatToBr(getValorFloat())}">
         </div></td>
+        <td><input type="text" class="form-control form-control-sm codigo-barras-parcela"
+            name="codigos_barras_parcelas[]" value="${codigoBarrasAtual}"
+            oninput="decifrarParcela(this)"></td>
         <td class="text-center"><button type="button" class="btn btn-sm btn-link text-danger"
-            onclick="this.closest('tr').remove();calcularTotalGeral()">
+            onclick="this.closest('tr').remove();calcularTotalGeral();renumerarParcelas()">
             <i class="fas fa-trash"></i></button></td>
     </tr>`);
-    aplicarMascarasTabela(); calcularTotalGeral();
+    aplicarMascarasTabela(); calcularTotalGeral(); renumerarParcelas();
 }
 
 function calcularTotalGeral() {
@@ -399,6 +474,15 @@ function aplicarMascarasTabela() {
 }
 
 document.addEventListener('DOMContentLoaded', function () {
+    // Sempre inicia com a data de hoje no boleto principal
+    if (!inputDataVenc.value) {
+        const hoje = new Date();
+        const yyyy = hoje.getFullYear();
+        const mm   = String(hoje.getMonth() + 1).padStart(2, '0');
+        const dd   = String(hoje.getDate()).padStart(2, '0');
+        inputDataVenc.value = `${yyyy}-${mm}-${dd}`;
+    }
+
     toggleDataFixa.addEventListener('change', atualizarInfoParcelas);
     if (typeof SimpleMaskMoney !== 'undefined') SimpleMaskMoney.setMask(campoValor, maskOpts);
 

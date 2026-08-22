@@ -9,6 +9,9 @@
             <p class="text-muted">Gerencie seus boletos e fluxos de pagamento.</p>
         </div>
         <div class="d-flex gap-2">
+            <a href="{{ route('boletos.relatorios') }}" class="btn btn-outline-primary px-3 shadow-sm" title="Relatórios">
+                <i class="fas fa-chart-pie me-2"></i>Relatórios
+            </a>
             <button id="theme-toggle" class="btn btn-outline-secondary px-3 shadow-sm" title="Alternar Tema">
                 <i id="theme-toggle-icon" class="fas fa-moon"></i>
             </button>
@@ -79,6 +82,17 @@
                     </div>
                 </div>
                 <div class="col-md-2">
+                    <label class="form-label fw-bold small text-muted">Categoria</label>
+                    <select name="categoria" class="form-select form-select-sm">
+                        <option value="">Todas</option>
+                        @foreach($categorias as $valor => $label)
+                            <option value="{{ $valor }}" {{ request('categoria') == $valor ? 'selected' : '' }}>
+                                {{ $label }}
+                            </option>
+                        @endforeach
+                    </select>
+                </div>
+                <div class="col-md-2">
                     <label class="form-label fw-bold small text-muted">Status</label>
                     <select name="status" class="form-select form-select-sm">
                         <option value="pendente"   {{ request('status','pendente') == 'pendente'   ? 'selected' : '' }}>Pendentes</option>
@@ -94,7 +108,7 @@
                     <label class="form-label fw-bold small text-muted">Fim Periodo</label>
                     <input type="date" name="data_fim" class="form-control form-control-sm" value="{{ request('data_fim') }}">
                 </div>
-                <div class="col-md-4 d-flex gap-2">
+                <div class="col-md-2 d-flex gap-2">
                     <button type="submit" class="btn btn-dark btn-sm flex-grow-1 fw-bold">
                         <i class="fas fa-filter me-1"></i> Filtrar
                     </button>
@@ -129,6 +143,7 @@
                                 @endif
                             </th>
                             <th class="border-0 py-3">Beneficiário</th>
+                            <th class="border-0 py-3">Categoria</th>
                             <th class="border-0 py-3">Valor</th>
                             <th class="border-0 py-3">Vencimento</th>
                             <th class="border-0 py-3">Status</th>
@@ -155,6 +170,11 @@
                                     @endif
                                 </td>
                                 <td class="fw-bold">{{ $boleto->beneficiario }}</td>
+                                <td>
+                                    <span class="badge bg-secondary-subtle text-secondary border">
+                                        {{ $boleto->categoria_label }}
+                                    </span>
+                                </td>
                                 <td class="fw-bold text-primary">R$ {{ number_format($boleto->valor, 2, ',', '.') }}</td>
                                 <td>
                                     <span class="{{ $isVencido ? 'text-danger fw-bold' : ($isVenceHoje ? 'text-warning fw-bold' : '') }}">
@@ -190,7 +210,7 @@
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="6" class="text-center py-5 text-muted">Nenhum registro encontrado.</td>
+                                <td colspan="7" class="text-center py-5 text-muted">Nenhum registro encontrado.</td>
                             </tr>
                         @endforelse
                     </tbody>

@@ -6,9 +6,25 @@ use Illuminate\Database\Eloquent\Model;
 
 class Boleto extends Model
 {
+    // Categorias disponíveis para classificação dos boletos.
+    // Centralizado aqui para ser usado nos formulários (create/edit) e no relatório.
+    public const CATEGORIAS = [
+        'agua'       => 'Água',
+        'energia'    => 'Energia Elétrica',
+        'internet'   => 'Internet / Telefone',
+        'aluguel'    => 'Aluguel',
+        'cartao'     => 'Cartão de Crédito',
+        'mercado'    => 'Mercado / Alimentação',
+        'transporte' => 'Transporte',
+        'saude'      => 'Saúde',
+        'educacao'   => 'Educação',
+        'outros'     => 'Outros',
+    ];
+
     protected $fillable = [
     'user_id',
     'beneficiario',
+    'categoria',
     'codigo_barras',
     'linha_digitavel',
     'valor',
@@ -18,9 +34,21 @@ class Boleto extends Model
     'status',
     ];
 
+    protected $casts = [
+        'data_vencimento' => 'date',
+        'data_pagamento'  => 'date',
+    ];
+
     public function user()
 {
     return $this->belongsTo(User::class);
+}
+
+// Retorna o nome legível da categoria (ex: 'energia' -> 'Energia Elétrica').
+// Se não tiver categoria definida, cai em 'Outros'.
+public function getCategoriaLabelAttribute(): string
+{
+    return self::CATEGORIAS[$this->categoria] ?? 'Outros';
 }
 
 public function setValorAttribute($value)

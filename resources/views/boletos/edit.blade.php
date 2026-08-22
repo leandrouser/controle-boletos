@@ -33,7 +33,7 @@
                     @method('PUT')
 
                     <div class="row">
-                        <div class="col-12 mb-3">
+                        <div class="col-md-8 mb-3">
                             <label class="form-label fw-bold">Beneficiário / Empresa</label>
                             <div class="input-group">
                                 <span class="input-group-text bg-white">
@@ -45,11 +45,26 @@
                             </div>
                         </div>
 
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label fw-bold">Categoria</label>
+                            <div class="input-group">
+                                <span class="input-group-text bg-white"><i class="fas fa-tags text-muted"></i></span>
+                                <select name="categoria" class="form-select">
+                                    <option value="">Selecione...</option>
+                                    @foreach($categorias as $valor => $label)
+                                        <option value="{{ $valor }}" {{ old('categoria', $boleto->categoria) == $valor ? 'selected' : '' }}>
+                                            {{ $label }}
+                                        </option>
+                                    @endforeach
+                                </select>
+                            </div>
+                        </div>
+
                         <div class="col-md-6 mb-3">
                             <label class="form-label fw-bold">Valor do Boleto</label>
                             <div class="input-group">
                                 <span class="input-group-text bg-white">R$</span>
-                            
+
                                 <input type="text" id="campo_valor" name="valor"
                                     class="form-control" inputmode="decimal"
                                     value="{{ number_format($boleto->valor, 2, ',', '.') }}"
@@ -64,7 +79,7 @@
                                     <i class="fas fa-calendar-alt text-muted"></i>
                                 </span>
                                 <input type="date" name="data_vencimento" class="form-control"
-                                    value="{{ old('data_vencimento', $boleto->data_vencimento) }}"
+                                    value="{{ old('data_vencimento', $boleto->data_vencimento?->format('Y-m-d')) }}"
                                     required>
                             </div>
                         </div>

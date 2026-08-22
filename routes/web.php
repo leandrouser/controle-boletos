@@ -32,6 +32,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/api/consultar-beneficiario/{assinatura}', [BoletoController::class, 'consultarAssinatura']);
     Route::get('/api/verificar-boleto-duplicado', [BoletoController::class, 'verificarDuplicado']);
     Route::get('/api/consultar-conta/{conta}', [BoletoController::class, 'consultarConta']);
+
+    Route::get('/boletos/relatorios', [BoletoController::class, 'relatorios'])->name('boletos.relatorios');
 });
 
 require __DIR__.'/auth.php';

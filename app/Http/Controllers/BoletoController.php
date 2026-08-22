@@ -3,9 +3,9 @@
 namespace App\Http\Controllers;
 
 use App\Models\BeneficiarioIdentificado;
-use Illuminate\Http\Request;
 use App\Models\Boleto;
 use Carbon\Carbon;
+use Illuminate\Http\Request;
 
 class BoletoController extends Controller
 {
@@ -68,13 +68,15 @@ class BoletoController extends Controller
 
     public function create()
     {
-        return view('boletos.create');
+        $categorias = Boleto::CATEGORIAS;
+        return view('boletos.create', compact('categorias'));
     }
 
     public function store(Request $request)
     {
         $request->validate([
             'beneficiario'    => 'required|string|max:255',
+            'categoria'       => 'nullable|string|in:' . implode(',', array_keys(Boleto::CATEGORIAS)),
             'valor'           => 'required',
             'data_vencimento' => 'required|date',
         ]);
@@ -96,6 +98,7 @@ class BoletoController extends Controller
         $contaOrigem      = $request->input('conta_origem');
         $assinatura       = $request->input('assinatura_origem');
         $nomeBeneficiario = $request->input('beneficiario');
+        $categoria        = $request->input('categoria');
 
         if (empty($contaOrigem) && $codigoLimpo) {
             $contaOrigem = $this->extrairContaOrigem($codigoLimpo);
@@ -113,6 +116,7 @@ class BoletoController extends Controller
             foreach ($vencimentos as $index => $data) {
                 Boleto::create([
                     'beneficiario'      => $nomeBeneficiario . " (" . ($index + 1) . "/{$total})",
+                    'categoria'         => $categoria,
                     'valor'             => $this->parseBrValue($valores[$index]),
                     'data_vencimento'   => $data,
                     'codigo_barras'     => $codigoLimpo,
@@ -125,6 +129,7 @@ class BoletoController extends Controller
         } else {
             Boleto::create([
                 'beneficiario'      => $nomeBeneficiario,
+                'categoria'         => $categoria,
                 'valor'             => $this->parseBrValue($request->valor),
                 'data_vencimento'   => $request->data_vencimento,
                 'codigo_barras'     => $codigoLimpo,
@@ -204,6 +209,10 @@ class BoletoController extends Controller
             $query->whereRaw('LOWER(beneficiario) LIKE ?', ['%' . strtolower($request->beneficiario) . '%']);
         }
 
+        if ($request->filled('categoria')) {
+            $query->where('categoria', $request->categoria);
+        }
+
         if ($request->filled('data_inicio') && $request->filled('data_fim')) {
             $query->whereBetween('data_vencimento', [$request->data_inicio, $request->data_fim]);
         } elseif ($request->filled('data_vencimento')) {
@@ -223,17 +232,21 @@ class BoletoController extends Controller
         $totalMes    = (float) Boleto::where('status', 'pendente')->whereDate('data_vencimento', '<=', $fimMes)->sum('valor');
         $qtdMes      = Boleto::where('status', 'pendente')->whereDate('data_vencimento', '<=', $fimMes)->count();
 
+        $categorias = Boleto::CATEGORIAS;
+
         return view('boletos.index', compact(
             'boletos', 'hoje', 'status',
             'totalDia', 'totalSemana', 'totalMes',
-            'qtdDia', 'qtdSemana', 'qtdMes'
+            'qtdDia', 'qtdSemana', 'qtdMes',
+            'categorias'
         ));
     }
 
     public function edit($id)
     {
-        $boleto = Boleto::findOrFail($id);
-        return view('boletos.edit', compact('boleto'));
+        $boleto     = Boleto::findOrFail($id);
+        $categorias = Boleto::CATEGORIAS;
+        return view('boletos.edit', compact('boleto', 'categorias'));
     }
 
     public function update(Request $request, $id)
@@ -242,6 +255,7 @@ class BoletoController extends Controller
 
         $request->validate([
             'beneficiario'    => 'required|string|max:255',
+            'categoria'       => 'nullable|string|in:' . implode(',', array_keys(Boleto::CATEGORIAS)),
             'valor'           => 'required',
             'data_vencimento' => 'required|date',
         ]);
@@ -255,6 +269,7 @@ class BoletoController extends Controller
 
         $boleto->update([
             'beneficiario'    => $request->beneficiario,
+            'categoria'       => $request->categoria,
             'valor'           => $this->parseBrValue($request->valor),
             'data_vencimento' => $request->data_vencimento,
             'codigo_barras'   => $request->codigo_barras,
@@ -363,5 +378,69 @@ class BoletoController extends Controller
             ->values();
 
         return response()->json($resultados);
+    }
+
+    public function relatorios(Request $request)
+    {
+        $dataInicio = $request->input('data_inicio', now()->startOfMonth()->format('Y-m-d'));
+        $dataFim    = $request->input('data_fim', now()->endOfMonth()->format('Y-m-d'));
+        $hoje       = now()->format('Y-m-d');
+
+        $baseQuery = Boleto::where('user_id', \Illuminate\Support\Facades\Auth::id())
+            ->whereBetween('data_vencimento', [$dataInicio, $dataFim]);
+
+        $totalPago     = (clone $baseQuery)->where('status', 'pago')->sum('valor');
+        $qtdPago       = (clone $baseQuery)->where('status', 'pago')->count();
+
+        $totalPendente = (clone $baseQuery)->where('status', 'pendente')->where('data_vencimento', '>=', $hoje)->sum('valor');
+        $qtdPendente   = (clone $baseQuery)->where('status', 'pendente')->where('data_vencimento', '>=', $hoje)->count();
+
+        $totalVencido  = (clone $baseQuery)->where('status', 'pendente')->where('data_vencimento', '<', $hoje)->sum('valor');
+        $qtdVencido    = (clone $baseQuery)->where('status', 'pendente')->where('data_vencimento', '<', $hoje)->count();
+
+        $totalGeral = $totalPago + $totalPendente + $totalVencido;
+
+        $mesesPt = ['01'=>'Jan','02'=>'Fev','03'=>'Mar','04'=>'Abr','05'=>'Mai','06'=>'Jun',
+                    '07'=>'Jul','08'=>'Ago','09'=>'Set','10'=>'Out','11'=>'Nov','12'=>'Dez'];
+
+        $todosDoPeriodo = (clone $baseQuery)->get();
+
+        $porMes = $todosDoPeriodo
+            ->groupBy(fn($item) => \Carbon\Carbon::parse($item->data_vencimento)->format('Y-m'))
+            ->map(function ($grupo, $mes) use ($mesesPt) {
+                return [
+                    'mes'   => $mes,
+                    'label' => $mesesPt[substr($mes, 5, 2)] . '/' . substr($mes, 0, 4),
+                    'total' => (float) $grupo->sum('valor'),
+                    'qtd'   => $grupo->count(),
+                ];
+            })
+            ->sortKeys()
+            ->values();
+
+        // Agrupamento por categoria (para o gráfico de pizza de categorias).
+        // Boletos sem categoria definida entram como "Outros".
+        $porCategoria = $todosDoPeriodo
+            ->groupBy(fn($item) => $item->categoria ?? 'outros')
+            ->map(function ($grupo, $categoria) {
+                return [
+                    'categoria' => $categoria,
+                    'label'     => Boleto::CATEGORIAS[$categoria] ?? 'Outros',
+                    'total'     => (float) $grupo->sum('valor'),
+                    'qtd'       => $grupo->count(),
+                ];
+            })
+            ->sortByDesc('total')
+            ->values();
+
+        $boletos = (clone $baseQuery)->orderBy('data_vencimento')->get();
+
+        return view('boletos.relatorio', compact(
+            'dataInicio', 'dataFim',
+            'totalPago', 'qtdPago',
+            'totalPendente', 'qtdPendente',
+            'totalVencido', 'qtdVencido',
+            'totalGeral', 'porMes', 'porCategoria', 'boletos', 'hoje'
+        ));
     }
 }
