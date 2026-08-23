@@ -9,25 +9,10 @@ class Boleto extends Model
 {
     use SoftDeletes;
 
-    // Categorias disponíveis para classificação dos boletos.
-    // Centralizado aqui para ser usado nos formulários (create/edit) e no relatório.
-    public const CATEGORIAS = [
-        'agua'       => 'Água',
-        'energia'    => 'Energia Elétrica',
-        'internet'   => 'Internet / Telefone',
-        'aluguel'    => 'Aluguel',
-        'cartao'     => 'Cartão de Crédito',
-        'mercado'    => 'Mercado / Alimentação',
-        'transporte' => 'Transporte',
-        'saude'      => 'Saúde',
-        'educacao'   => 'Educação',
-        'outros'     => 'Outros',
-    ];
-
     protected $fillable = [
     'user_id',
     'beneficiario',
-    'categoria',
+    'categoria_id',
     'codigo_barras',
     'linha_digitavel',
     'valor',
@@ -47,11 +32,16 @@ class Boleto extends Model
     return $this->belongsTo(User::class);
 }
 
-// Retorna o nome legível da categoria (ex: 'energia' -> 'Energia Elétrica').
-// Se não tiver categoria definida, cai em 'Outros'.
+public function categoria()
+{
+    return $this->belongsTo(Categoria::class);
+}
+
+// Retorna o nome legível da categoria. Se o boleto não tiver
+// categoria vinculada (ou ela tiver sido excluída), cai em 'Sem categoria'.
 public function getCategoriaLabelAttribute(): string
 {
-    return self::CATEGORIAS[$this->categoria] ?? 'Outros';
+    return $this->categoria?->nome ?? 'Sem categoria';
 }
 
 public function setValorAttribute($value)

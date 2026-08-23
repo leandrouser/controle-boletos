@@ -49,11 +49,11 @@
                             <label class="form-label fw-bold">Categoria</label>
                             <div class="input-group">
                                 <span class="input-group-text bg-white"><i class="fas fa-tags text-muted"></i></span>
-                                <select name="categoria" class="form-select">
+                                <select name="categoria_id" class="form-select">
                                     <option value="">Selecione...</option>
-                                    @foreach($categorias as $valor => $label)
-                                        <option value="{{ $valor }}" {{ old('categoria', $boleto->categoria) == $valor ? 'selected' : '' }}>
-                                            {{ $label }}
+                                    @foreach($categorias as $cat)
+                                        <option value="{{ $cat->id }}" {{ old('categoria_id', $boleto->categoria_id) == $cat->id ? 'selected' : '' }}>
+                                            {{ $cat->nome }}
                                         </option>
                                     @endforeach
                                 </select>

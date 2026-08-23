@@ -83,11 +83,11 @@
                 </div>
                 <div class="col-md-2">
                     <label class="form-label fw-bold small text-muted">Categoria</label>
-                    <select name="categoria" class="form-select form-select-sm">
+                    <select name="categoria_id" class="form-select form-select-sm">
                         <option value="">Todas</option>
-                        @foreach($categorias as $valor => $label)
-                            <option value="{{ $valor }}" {{ request('categoria') == $valor ? 'selected' : '' }}>
-                                {{ $label }}
+                        @foreach($categorias as $cat)
+                            <option value="{{ $cat->id }}" {{ request('categoria_id') == $cat->id ? 'selected' : '' }}>
+                                {{ $cat->nome }}
                             </option>
                         @endforeach
                     </select>

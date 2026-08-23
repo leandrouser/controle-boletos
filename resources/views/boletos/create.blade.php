@@ -64,10 +64,10 @@
                             <label class="form-label fw-bold">Categoria</label>
                             <div class="input-group">
                                 <span class="input-group-text bg-white"><i class="fas fa-tags text-muted"></i></span>
-                                <select name="categoria" id="categoria" class="form-select">
+                                <select name="categoria_id" id="categoria" class="form-select">
                                     <option value="">Selecione...</option>
-                                    @foreach($categorias as $valor => $label)
-                                        <option value="{{ $valor }}">{{ $label }}</option>
+                                    @foreach($categorias as $cat)
+                                        <option value="{{ $cat->id }}">{{ $cat->nome }}</option>
                                     @endforeach
                                 </select>
                             </div>

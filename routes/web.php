@@ -25,6 +25,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/boletos/{id}/restaurar', [BoletoController::class, 'restaurar'])->name('boletos.restaurar');
     Route::delete('/boletos/{id}/forcar', [BoletoController::class, 'excluirDefinitivo'])->name('boletos.excluirDefinitivo');
 
+    Route::get('/categorias', [\App\Http\Controllers\CategoriaController::class, 'index'])->name('categorias.index');
+    Route::post('/categorias', [\App\Http\Controllers\CategoriaController::class, 'store'])->name('categorias.store');
+    Route::put('/categorias/{categoria}', [\App\Http\Controllers\CategoriaController::class, 'update'])->name('categorias.update');
+    Route::delete('/categorias/{categoria}', [\App\Http\Controllers\CategoriaController::class, 'destroy'])->name('categorias.destroy');
+
+
     Route::post('/boletos', [BoletoController::class, 'store'])->name('boletos.store');
 
     Route::get('/boletos/{id}/editar', [BoletoController::class, 'edit'])->name('boletos.edit');

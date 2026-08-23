@@ -69,7 +69,7 @@ class BoletoController extends Controller
 
     public function create()
     {
-        $categorias = Boleto::CATEGORIAS;
+        $categorias = \App\Models\Categoria::orderBy('nome')->get();
         return view('boletos.create', compact('categorias'));
     }
 
@@ -77,7 +77,7 @@ class BoletoController extends Controller
     {
         $request->validate([
             'beneficiario'    => 'required|string|max:255',
-            'categoria'       => 'nullable|string|in:' . implode(',', array_keys(Boleto::CATEGORIAS)),
+            'categoria_id'    => 'nullable|exists:categorias,id',
             'valor'           => 'required',
             'data_vencimento' => 'required|date',
         ]);
@@ -99,7 +99,7 @@ class BoletoController extends Controller
         $contaOrigem      = $request->input('conta_origem');
         $assinatura       = $request->input('assinatura_origem');
         $nomeBeneficiario = $request->input('beneficiario');
-        $categoria        = $request->input('categoria');
+        $categoriaId      = $request->input('categoria_id');
 
         if (empty($contaOrigem) && $codigoLimpo) {
             $contaOrigem = $this->extrairContaOrigem($codigoLimpo);
@@ -117,7 +117,7 @@ class BoletoController extends Controller
             foreach ($vencimentos as $index => $data) {
                 Boleto::create([
                     'beneficiario'      => $nomeBeneficiario . " (" . ($index + 1) . "/{$total})",
-                    'categoria'         => $categoria,
+                    'categoria_id'      => $categoriaId,
                     'valor'             => $this->parseBrValue($valores[$index]),
                     'data_vencimento'   => $data,
                     'codigo_barras'     => $codigoLimpo,
@@ -130,7 +130,7 @@ class BoletoController extends Controller
         } else {
             Boleto::create([
                 'beneficiario'      => $nomeBeneficiario,
-                'categoria'         => $categoria,
+                'categoria_id'      => $categoriaId,
                 'valor'             => $this->parseBrValue($request->valor),
                 'data_vencimento'   => $request->data_vencimento,
                 'codigo_barras'     => $codigoLimpo,
@@ -210,8 +210,8 @@ class BoletoController extends Controller
             $query->whereRaw('LOWER(beneficiario) LIKE ?', ['%' . strtolower($request->beneficiario) . '%']);
         }
 
-        if ($request->filled('categoria')) {
-            $query->where('categoria', $request->categoria);
+        if ($request->filled('categoria_id')) {
+            $query->where('categoria_id', $request->categoria_id);
         }
 
         if ($request->filled('data_inicio') && $request->filled('data_fim')) {
@@ -233,7 +233,7 @@ class BoletoController extends Controller
         $totalMes    = (float) Boleto::where('status', 'pendente')->whereDate('data_vencimento', '<=', $fimMes)->sum('valor');
         $qtdMes      = Boleto::where('status', 'pendente')->whereDate('data_vencimento', '<=', $fimMes)->count();
 
-        $categorias = Boleto::CATEGORIAS;
+        $categorias = \App\Models\Categoria::orderBy('nome')->get();
 
         return view('boletos.index', compact(
             'boletos', 'hoje', 'status',
@@ -246,7 +246,7 @@ class BoletoController extends Controller
     public function edit($id)
     {
         $boleto     = Boleto::findOrFail($id);
-        $categorias = Boleto::CATEGORIAS;
+        $categorias = \App\Models\Categoria::orderBy('nome')->get();
         return view('boletos.edit', compact('boleto', 'categorias'));
     }
 
@@ -256,7 +256,7 @@ class BoletoController extends Controller
 
         $request->validate([
             'beneficiario'    => 'required|string|max:255',
-            'categoria'       => 'nullable|string|in:' . implode(',', array_keys(Boleto::CATEGORIAS)),
+            'categoria_id'    => 'nullable|exists:categorias,id',
             'valor'           => 'required',
             'data_vencimento' => 'required|date',
         ]);
@@ -270,7 +270,7 @@ class BoletoController extends Controller
 
         $boleto->update([
             'beneficiario'    => $request->beneficiario,
-            'categoria'       => $request->categoria,
+            'categoria_id'    => $request->categoria_id,
             'valor'           => $this->parseBrValue($request->valor),
             'data_vencimento' => $request->data_vencimento,
             'codigo_barras'   => $request->codigo_barras,
@@ -441,7 +441,7 @@ class BoletoController extends Controller
         $mesesPt = ['01'=>'Jan','02'=>'Fev','03'=>'Mar','04'=>'Abr','05'=>'Mai','06'=>'Jun',
                     '07'=>'Jul','08'=>'Ago','09'=>'Set','10'=>'Out','11'=>'Nov','12'=>'Dez'];
 
-        $todosDoPeriodo = (clone $baseQuery)->get();
+        $todosDoPeriodo = (clone $baseQuery)->with('categoria')->get();
 
         $porMes = $todosDoPeriodo
             ->groupBy(fn($item) => Carbon::parse($item->data_vencimento)->format('Y-m'))
@@ -474,20 +474,22 @@ class BoletoController extends Controller
         $porMes = collect($porMesArray);
 
         // Agrupamento por categoria (para o gráfico de pizza de categorias).
+        // Boletos sem categoria vinculada entram como "Sem categoria".
         $porCategoria = $todosDoPeriodo
-            ->groupBy(fn($item) => $item->categoria ?? 'outros')
-            ->map(function ($grupo, $categoria) {
+            ->groupBy(fn($item) => $item->categoria_id ?? 0)
+            ->map(function ($grupo) {
+                $primeiro = $grupo->first();
                 return [
-                    'categoria' => $categoria,
-                    'label'     => Boleto::CATEGORIAS[$categoria] ?? 'Outros',
-                    'total'     => (float) $grupo->sum('valor'),
-                    'qtd'       => $grupo->count(),
+                    'categoria_id' => $primeiro->categoria_id,
+                    'label'        => $primeiro->categoria?->nome ?? 'Sem categoria',
+                    'total'        => (float) $grupo->sum('valor'),
+                    'qtd'          => $grupo->count(),
                 ];
             })
             ->sortByDesc('total')
             ->values();
 
-        $boletos = (clone $baseQuery)->orderBy('data_vencimento')->get();
+        $boletos = (clone $baseQuery)->with('categoria')->orderBy('data_vencimento')->get();
 
         // Comparativo com o período anterior de mesma duração
         // (ex: se o filtro é 01/08 a 31/08 [31 dias], compara com 01/07 a 31/07)
