@@ -16,10 +16,18 @@
         <div class="mt-4">
             <x-input-label for="password" :value="__('Password')" />
 
-            <x-text-input id="password" class="block mt-1 w-full"
-                            type="password"
-                            name="password"
-                            required autocomplete="current-password" />
+            <div class="relative">
+                <x-text-input id="password" class="block mt-1 w-full pe-10"
+                                type="password"
+                                name="password"
+                                required autocomplete="current-password" />
+
+                <button type="button" id="toggle-password"
+                    class="absolute inset-y-0 end-0 flex items-center pe-3 mt-1 text-gray-400 hover:text-gray-600"
+                    tabindex="-1" aria-label="Mostrar senha">
+                    <i id="toggle-password-icon" class="fas fa-eye"></i>
+                </button>
+            </div>
 
             <x-input-error :messages="$errors->get('password')" class="mt-2" />
         </div>
@@ -44,4 +52,19 @@
             </x-primary-button>
         </div>
     </form>
+
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <script>
+        document.getElementById('toggle-password').addEventListener('click', function () {
+            const campoSenha = document.getElementById('password');
+            const icone      = document.getElementById('toggle-password-icon');
+            const mostrando  = campoSenha.type === 'text';
+
+            campoSenha.type = mostrando ? 'password' : 'text';
+            icone.classList.toggle('fa-eye');
+            icone.classList.toggle('fa-eye-slash');
+            this.setAttribute('aria-label', mostrando ? 'Mostrar senha' : 'Ocultar senha');
+        });
+    </script>
 </x-guest-layout>
