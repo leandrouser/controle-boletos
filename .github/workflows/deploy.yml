@@ -11,6 +11,11 @@ jobs:
     steps:
       - name: Deploy via SSH
         uses: appleboy/ssh-action@v1.0.3
+        env:
+          EVOLUTION_API_URL: ${{ secrets.EVOLUTION_API_URL }}
+          EVOLUTION_API_KEY: ${{ secrets.EVOLUTION_API_KEY }}
+          EVOLUTION_INSTANCE: ${{ secrets.EVOLUTION_INSTANCE }}
+          EVOLUTION_ALERTA_NUMEROS: ${{ secrets.EVOLUTION_ALERTA_NUMEROS }}
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
@@ -18,10 +23,23 @@ jobs:
           port: 22
           timeout: 30s
           command_timeout: 30m
+          envs: EVOLUTION_API_URL,EVOLUTION_API_KEY,EVOLUTION_INSTANCE,EVOLUTION_ALERTA_NUMEROS
           script: |
+            set -e
             cd /var/www/controle-boletos
             git pull origin main
             composer install --no-dev --no-interaction
+
+            # Garante/atualiza as variáveis do Evolution API no .env de produção
+            for VAR in EVOLUTION_API_URL EVOLUTION_API_KEY EVOLUTION_INSTANCE EVOLUTION_ALERTA_NUMEROS; do
+              VALUE="${!VAR}"
+              if grep -q "^${VAR}=" .env; then
+                sed -i "s|^${VAR}=.*|${VAR}=${VALUE}|" .env
+              else
+                echo "${VAR}=${VALUE}" >> .env
+              fi
+            done
+
             php artisan migrate --force
             php artisan config:clear
             php artisan cache:clear
