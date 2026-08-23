@@ -3,9 +3,12 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Boleto extends Model
 {
+    use SoftDeletes;
+
     // Categorias disponíveis para classificação dos boletos.
     // Centralizado aqui para ser usado nos formulários (create/edit) e no relatório.
     public const CATEGORIAS = [

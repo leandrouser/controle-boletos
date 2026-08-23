@@ -4,6 +4,14 @@
 
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h4 class="mb-0"><i class="fas fa-chart-pie me-2"></i> Relatórios</h4>
+    <div class="d-flex gap-2">
+        <a href="{{ route('boletos.relatorios.pdf', request()->query()) }}" class="btn btn-outline-danger btn-sm">
+            <i class="fas fa-file-pdf me-1"></i> Exportar PDF
+        </a>
+        <a href="{{ route('boletos.relatorios.csv', request()->query()) }}" class="btn btn-outline-success btn-sm">
+            <i class="fas fa-file-excel me-1"></i> Exportar Excel
+        </a>
+    </div>
 </div>
 
 {{-- ─── Filtro de período ─────────────────────────────────────────────── --}}
@@ -67,6 +75,16 @@
                 <div class="small fw-bold text-uppercase mb-1" style="font-size:.7rem;opacity:.85;">Total Geral</div>
                 <div class="h5 mb-0">R$ {{ number_format($totalGeral, 2, ',', '.') }}</div>
                 <div class="small" style="opacity:.85;">{{ $qtdPago + $qtdPendente + $qtdVencido }} boleto(s)</div>
+                @if($variacaoPeriodo !== null)
+                    <div class="small mt-1">
+                        <span class="badge {{ $variacaoPeriodo >= 0 ? 'bg-danger-subtle text-danger' : 'bg-success-subtle text-success' }}">
+                            <i class="fas fa-arrow-{{ $variacaoPeriodo >= 0 ? 'up' : 'down' }} me-1"></i>
+                            {{ abs($variacaoPeriodo) }}% vs período anterior
+                        </span>
+                    </div>
+                @else
+                    <div class="small mt-1" style="opacity:.7;">Sem dados no período anterior para comparar</div>
+                @endif
             </div>
         </div>
     </div>
@@ -126,12 +144,46 @@
                     </div>
                 @endif
             </div>
+            @if($porMes->count() > 1)
+                <div class="table-responsive border-top">
+                    <table class="table table-sm mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Mês</th>
+                                <th class="text-center">Qtd</th>
+                                <th class="text-end">Total</th>
+                                <th class="text-end">Variação vs mês anterior</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach($porMes as $mes)
+                                <tr>
+                                    <td>{{ $mes['label'] }}</td>
+                                    <td class="text-center">{{ $mes['qtd'] }}</td>
+                                    <td class="text-end">R$ {{ number_format($mes['total'], 2, ',', '.') }}</td>
+                                    <td class="text-end">
+                                        @if($mes['variacao'] === null)
+                                            <span class="text-muted">—</span>
+                                        @else
+                                            <span class="{{ $mes['variacao'] >= 0 ? 'text-danger' : 'text-success' }}">
+                                                <i class="fas fa-arrow-{{ $mes['variacao'] >= 0 ? 'up' : 'down' }} me-1"></i>
+                                                {{ abs($mes['variacao']) }}%
+                                            </span>
+                                        @endif
+                                    </td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+            @endif
         </div>
     </div>
 </div>
 
 {{-- ─── Tabela detalhada ──────────────────────────────────────────────── --}}
 <div class="card shadow-sm border-0">
+
     <div class="card-header bg-white d-flex justify-content-between align-items-center">
         <strong><i class="fas fa-list me-1 text-muted"></i> Boletos do Período</strong>
         <span class="badge bg-secondary-subtle text-secondary">{{ $boletos->count() }} registro(s)</span>

@@ -6,6 +6,7 @@ use App\Models\BeneficiarioIdentificado;
 use App\Models\Boleto;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 
 class BoletoController extends Controller
 {
@@ -94,7 +95,7 @@ class BoletoController extends Controller
             }
         }
 
-        $userId           = \Illuminate\Support\Facades\Auth::id();
+        $userId           = Auth::id();
         $contaOrigem      = $request->input('conta_origem');
         $assinatura       = $request->input('assinatura_origem');
         $nomeBeneficiario = $request->input('beneficiario');
@@ -287,10 +288,13 @@ class BoletoController extends Controller
         return redirect()->back()->with('success', 'Pagamento confirmado com sucesso!');
     }
 
+    // Agora faz soft delete automaticamente (o Model usa o trait SoftDeletes).
+    // O registro some das listagens normais, mas continua no banco e pode ser
+    // restaurado na Lixeira.
     public function destroy($id)
     {
         Boleto::findOrFail($id)->delete();
-        return redirect()->route('dashboard')->with('success', 'Boleto excluído!');
+        return redirect()->route('dashboard')->with('success', 'Boleto movido para a lixeira!');
     }
 
     public function pagarLote(Request $request)
@@ -306,6 +310,34 @@ class BoletoController extends Controller
         ]);
 
         return redirect()->route('dashboard')->with('success', count($ids) . ' boleto(s) pago(s) com sucesso!');
+    }
+
+    // ─── Lixeira (soft deletes) ─────────────────────────────────────────
+
+    public function lixeira()
+    {
+        $boletos = Boleto::onlyTrashed()
+            ->orderBy('deleted_at', 'desc')
+            ->paginate(15);
+
+        return view('boletos.lixeira', compact('boletos'));
+    }
+
+    public function restaurar($id)
+    {
+        $boleto = Boleto::onlyTrashed()->findOrFail($id);
+        $boleto->restore();
+
+        return redirect()->route('boletos.lixeira')->with('success', "Boleto de {$boleto->beneficiario} restaurado com sucesso!");
+    }
+
+    public function excluirDefinitivo($id)
+    {
+        $boleto = Boleto::onlyTrashed()->findOrFail($id);
+        $nome   = $boleto->beneficiario;
+        $boleto->forceDelete();
+
+        return redirect()->route('boletos.lixeira')->with('success', "Boleto de {$nome} excluído permanentemente.");
     }
 
     public function visualizarBarcode($id)
@@ -380,13 +412,19 @@ class BoletoController extends Controller
         return response()->json($resultados);
     }
 
-    public function relatorios(Request $request)
+    // ─── Relatórios ──────────────────────────────────────────────────────
+
+    /**
+     * Monta todos os dados usados pelo relatório (tela, PDF e CSV puxam
+     * daqui, pra garantir que os três mostrem exatamente os mesmos números).
+     */
+    private function dadosRelatorio(Request $request): array
     {
         $dataInicio = $request->input('data_inicio', now()->startOfMonth()->format('Y-m-d'));
         $dataFim    = $request->input('data_fim', now()->endOfMonth()->format('Y-m-d'));
         $hoje       = now()->format('Y-m-d');
 
-        $baseQuery = Boleto::where('user_id', \Illuminate\Support\Facades\Auth::id())
+        $baseQuery = Boleto::where('user_id', Auth::id())
             ->whereBetween('data_vencimento', [$dataInicio, $dataFim]);
 
         $totalPago     = (clone $baseQuery)->where('status', 'pago')->sum('valor');
@@ -406,7 +444,7 @@ class BoletoController extends Controller
         $todosDoPeriodo = (clone $baseQuery)->get();
 
         $porMes = $todosDoPeriodo
-            ->groupBy(fn($item) => \Carbon\Carbon::parse($item->data_vencimento)->format('Y-m'))
+            ->groupBy(fn($item) => Carbon::parse($item->data_vencimento)->format('Y-m'))
             ->map(function ($grupo, $mes) use ($mesesPt) {
                 return [
                     'mes'   => $mes,
@@ -418,8 +456,24 @@ class BoletoController extends Controller
             ->sortKeys()
             ->values();
 
+        // Comparativo mês a mês: calcula a variação percentual de cada mês
+        // em relação ao mês imediatamente anterior dentro do período filtrado.
+        // O primeiro mês do período não tem "anterior" pra comparar, então fica null.
+        $porMesArray = $porMes->toArray();
+        foreach ($porMesArray as $i => &$item) {
+            if ($i === 0) {
+                $item['variacao'] = null;
+            } else {
+                $anterior = $porMesArray[$i - 1]['total'];
+                $item['variacao'] = $anterior > 0
+                    ? round((($item['total'] - $anterior) / $anterior) * 100, 1)
+                    : null;
+            }
+        }
+        unset($item);
+        $porMes = collect($porMesArray);
+
         // Agrupamento por categoria (para o gráfico de pizza de categorias).
-        // Boletos sem categoria definida entram como "Outros".
         $porCategoria = $todosDoPeriodo
             ->groupBy(fn($item) => $item->categoria ?? 'outros')
             ->map(function ($grupo, $categoria) {
@@ -435,12 +489,91 @@ class BoletoController extends Controller
 
         $boletos = (clone $baseQuery)->orderBy('data_vencimento')->get();
 
-        return view('boletos.relatorio', compact(
+        // Comparativo com o período anterior de mesma duração
+        // (ex: se o filtro é 01/08 a 31/08 [31 dias], compara com 01/07 a 31/07)
+        $inicio      = Carbon::parse($dataInicio);
+        $fim         = Carbon::parse($dataFim);
+        $diasPeriodo = $inicio->diffInDays($fim) + 1;
+
+        $dataFimAnterior    = $inicio->copy()->subDay()->format('Y-m-d');
+        $dataInicioAnterior = $inicio->copy()->subDays($diasPeriodo)->format('Y-m-d');
+
+        $totalPeriodoAnterior = Boleto::where('user_id', Auth::id())
+            ->whereBetween('data_vencimento', [$dataInicioAnterior, $dataFimAnterior])
+            ->sum('valor');
+
+        $variacaoPeriodo = $totalPeriodoAnterior > 0
+            ? round((($totalGeral - $totalPeriodoAnterior) / $totalPeriodoAnterior) * 100, 1)
+            : null;
+
+        return compact(
             'dataInicio', 'dataFim',
             'totalPago', 'qtdPago',
             'totalPendente', 'qtdPendente',
             'totalVencido', 'qtdVencido',
-            'totalGeral', 'porMes', 'porCategoria', 'boletos', 'hoje'
-        ));
+            'totalGeral', 'porMes', 'porCategoria', 'boletos', 'hoje',
+            'totalPeriodoAnterior', 'variacaoPeriodo',
+            'dataInicioAnterior', 'dataFimAnterior'
+        );
+    }
+
+    public function relatorios(Request $request)
+    {
+        return view('boletos.relatorio', $this->dadosRelatorio($request));
+    }
+
+    public function exportarPdf(Request $request)
+    {
+        $dados = $this->dadosRelatorio($request);
+
+        $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('boletos.relatorio-pdf', $dados)
+            ->setPaper('a4', 'portrait');
+
+        $nomeArquivo = "relatorio-boletos-{$dados['dataInicio']}-a-{$dados['dataFim']}.pdf";
+
+        return $pdf->download($nomeArquivo);
+    }
+
+    public function exportarCsv(Request $request)
+    {
+        $dados   = $this->dadosRelatorio($request);
+        $boletos = $dados['boletos'];
+        $hoje    = $dados['hoje'];
+
+        $nomeArquivo = "relatorio-boletos-{$dados['dataInicio']}-a-{$dados['dataFim']}.csv";
+
+        $callback = function () use ($boletos, $hoje) {
+            $handle = fopen('php://output', 'w');
+
+            // BOM UTF-8, para o Excel reconhecer acentuação corretamente
+            fwrite($handle, "\xEF\xBB\xBF");
+
+            fputcsv($handle, ['Beneficiário', 'Categoria', 'Vencimento', 'Pagamento', 'Valor', 'Status'], ';');
+
+            foreach ($boletos as $boleto) {
+                $ehVencido = $boleto->status === 'pendente'
+                    && $boleto->data_vencimento->format('Y-m-d') < $hoje;
+
+                $statusLabel = $boleto->status === 'pago'
+                    ? 'Pago'
+                    : ($ehVencido ? 'Vencido' : 'Pendente');
+
+                fputcsv($handle, [
+                    $boleto->beneficiario,
+                    $boleto->categoria_label,
+                    $boleto->data_vencimento->format('d/m/Y'),
+                    $boleto->data_pagamento ? $boleto->data_pagamento->format('d/m/Y') : '',
+                    number_format($boleto->valor, 2, ',', '.'),
+                    $statusLabel,
+                ], ';');
+            }
+
+            fclose($handle);
+        };
+
+        return response()->stream($callback, 200, [
+            'Content-Type'        => 'text/csv; charset=UTF-8',
+            'Content-Disposition' => "attachment; filename=\"{$nomeArquivo}\"",
+        ]);
     }
 }

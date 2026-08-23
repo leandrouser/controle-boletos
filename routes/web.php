@@ -17,6 +17,14 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/boletos/relatorio', [BoletoController::class, 'gerarPdf'])->name('boletos.pdf');
     Route::get('/boletos/beneficiarios/buscar', [BoletoController::class, 'buscarBeneficiarios'])->name('boletos.beneficiarios.buscar');
 
+    Route::get('/boletos/relatorios', [BoletoController::class, 'relatorios'])->name('boletos.relatorios');
+    Route::get('/boletos/relatorios/pdf', [BoletoController::class, 'exportarPdf'])->name('boletos.relatorios.pdf');
+    Route::get('/boletos/relatorios/csv', [BoletoController::class, 'exportarCsv'])->name('boletos.relatorios.csv');
+
+    Route::get('/boletos/lixeira', [BoletoController::class, 'lixeira'])->name('boletos.lixeira');
+    Route::post('/boletos/{id}/restaurar', [BoletoController::class, 'restaurar'])->name('boletos.restaurar');
+    Route::delete('/boletos/{id}/forcar', [BoletoController::class, 'excluirDefinitivo'])->name('boletos.excluirDefinitivo');
+
     Route::post('/boletos', [BoletoController::class, 'store'])->name('boletos.store');
 
     Route::get('/boletos/{id}/editar', [BoletoController::class, 'edit'])->name('boletos.edit');
@@ -32,8 +40,6 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/api/consultar-beneficiario/{assinatura}', [BoletoController::class, 'consultarAssinatura']);
     Route::get('/api/verificar-boleto-duplicado', [BoletoController::class, 'verificarDuplicado']);
     Route::get('/api/consultar-conta/{conta}', [BoletoController::class, 'consultarConta']);
-
-    Route::get('/boletos/relatorios', [BoletoController::class, 'relatorios'])->name('boletos.relatorios');
 });
 
 require __DIR__.'/auth.php';
